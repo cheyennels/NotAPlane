@@ -4,6 +4,7 @@ export const Colors = {
   surface2: "#252525",
   white: "#F2F2F0",
   green: "#39FF14",
+  darkGreen: "#003E00",
   blue: "#00CFFF", // Explained pin
   yellow: "#FFE033", // Partial match pin
   red: "#FF4545", // Unexplained pin

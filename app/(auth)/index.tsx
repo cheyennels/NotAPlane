@@ -1,5 +1,6 @@
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
+import { getAuthErrorMessage } from "@/lib/auth-errors";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
@@ -19,16 +20,27 @@ export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   async function handleLogin() {
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail || !password) {
+      setErrorMessage("Email and password are required.");
+      return;
+    }
+
     setLoading(true);
+    setErrorMessage(null);
+
     const { error } = await supabase.auth.signInWithPassword({
-      email,
+      email: trimmedEmail,
       password,
     });
 
     if (error) {
-      Alert.alert("Login Failed", error.message);
+      setErrorMessage(getAuthErrorMessage(error.message));
+      Alert.alert("Login Failed", getAuthErrorMessage(error.message));
     } else {
       router.replace("/(tabs)/map");
     }
@@ -76,6 +88,9 @@ export default function LoginScreen() {
         </TouchableOpacity>
 
         {/* Login button */}
+        {errorMessage ? (
+          <Text style={styles.errorText}>{errorMessage}</Text>
+        ) : null}
         <TouchableOpacity
           style={[styles.btnPrimary, loading && styles.btnDisabled]}
           onPress={handleLogin}
@@ -154,6 +169,13 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: Colors.muted,
     marginBottom: 24,
+  },
+  errorText: {
+    fontFamily: Fonts.mono,
+    fontSize: 11,
+    color: Colors.red,
+    marginBottom: 12,
+    lineHeight: 16,
   },
   btnPrimary: {
     backgroundColor: Colors.green,

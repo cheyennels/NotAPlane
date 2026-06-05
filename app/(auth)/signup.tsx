@@ -1,5 +1,6 @@
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
+import { getAuthErrorMessage } from "@/lib/auth-errors";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
@@ -47,8 +48,8 @@ export default function SignUpScreen() {
     if (!validatePassword()) return;
 
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
-      email,
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
       password,
       options: {
         data: { name },
@@ -56,11 +57,13 @@ export default function SignUpScreen() {
     });
 
     if (error) {
-      Alert.alert("Sign Up Failed", error.message);
+      Alert.alert("Sign Up Failed", getAuthErrorMessage(error.message));
+    } else if (data.session) {
+      router.replace("/(tabs)/map");
     } else {
       Alert.alert(
-        "Account Created!",
-        "Welcome to NotAPlane. You can now log in.",
+        "Check your email",
+        "We sent a confirmation link to your inbox. Confirm your email, then log in.",
         [{ text: "OK", onPress: () => router.replace("/(auth)") }],
       );
     }

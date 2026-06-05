@@ -2,7 +2,7 @@ import { SpaceMono_400Regular } from "@expo-google-fonts/space-mono";
 import { Fonts } from "@/constants/fonts";
 import { Session } from "@supabase/supabase-js";
 import { useFonts } from "expo-font";
-import { Stack } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
 import "react-native-reanimated";
@@ -12,6 +12,8 @@ import { supabase } from "../lib/supabase";
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  const router = useRouter();
+  const segments = useSegments();
   const [session, setSession] = useState<Session | null>(null);
   const [initialized, setInitialized] = useState(false);
 
@@ -47,6 +49,18 @@ export default function RootLayout() {
     return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (!initialized) return;
+
+    const inAuthGroup = segments[0] === "(auth)";
+
+    if (session && inAuthGroup) {
+      router.replace("/(tabs)/map");
+    } else if (!session && !inAuthGroup) {
+      router.replace("/(auth)");
+    }
+  }, [session, initialized, segments, router]);
+
   if (!loaded || !initialized) {
     return null;
   }
@@ -55,7 +69,6 @@ export default function RootLayout() {
     <Stack>
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="report" options={{ headerShown: false }} />
     </Stack>
   );
 }
