@@ -1,59 +1,103 @@
-import React from 'react';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Link, Tabs } from 'expo-router';
-import { Pressable } from 'react-native';
-
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
-import { useClientOnlyValue } from '@/components/useClientOnlyValue';
-
-// You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
-function TabBarIcon(props: {
-  name: React.ComponentProps<typeof FontAwesome>['name'];
-  color: string;
-}) {
-  return <FontAwesome size={28} style={{ marginBottom: -3 }} {...props} />;
-}
+import { Colors } from "@/constants/colors";
+import { Fonts } from "@/constants/fonts";
+import { Tabs } from "expo-router";
+import { Image, StyleSheet } from "react-native";
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        // Disable the static render of the header on web
-        // to prevent a hydration error in React Navigation v6.
-        headerShown: useClientOnlyValue(false, true),
-      }}>
+        headerShown: false,
+        tabBarStyle: styles.tabBar,
+        tabBarActiveTintColor: Colors.green,
+        tabBarInactiveTintColor: Colors.white,
+        tabBarLabelPosition: "below-icon",
+        tabBarLabelStyle: styles.tabLabel,
+      }}
+    >
       <Tabs.Screen
-        name="index"
+        name="map"
         options={{
-          title: 'Tab One',
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
-          headerRight: () => (
-            <Link href="/modal" asChild>
-              <Pressable>
-                {({ pressed }) => (
-                  <FontAwesome
-                    name="info-circle"
-                    size={25}
-                    color={Colors[colorScheme ?? 'light'].text}
-                    style={{ marginRight: 15, opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
+          title: "Map",
+          tabBarIcon: ({ focused }) => (
+            <Image
+              source={
+                focused
+                  ? require("../../assets/images/map-focus.png")
+                  : require("../../assets/images/map.png")
+              }
+              style={styles.icon}
+            />
           ),
         }}
       />
       <Tabs.Screen
-        name="two"
+        name="sightings"
         options={{
-          title: 'Tab Two',
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
+          title: "Sightings",
+          tabBarIcon: ({ focused }) => (
+            <Image
+              source={
+                focused
+                  ? require("../../assets/images/reports-focus.png")
+                  : require("../../assets/images/reports.png")
+              }
+              style={styles.icon}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="activity"
+        options={{
+          title: "Activity",
+          tabBarIcon: ({ focused }) => (
+            <Image
+              source={
+                focused
+                  ? require("../../assets/images/notification-focus.png")
+                  : require("../../assets/images/notification.png")
+              }
+              style={styles.icon}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Profile",
+          tabBarIcon: ({ focused }) => (
+            <Image
+              source={
+                focused
+                  ? require("../../assets/images/profile-focus.png")
+                  : require("../../assets/images/profile.png")
+              }
+              style={styles.icon}
+            />
+          ),
         }}
       />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBar: {
+    backgroundColor: Colors.surface,
+    height: 88,
+    paddingTop: 10,
+    paddingBottom: 10,
+  },
+  tabLabel: {
+    fontFamily: Fonts.mono,
+    fontSize: 10,
+    marginTop: 2,
+  },
+  icon: {
+    width: 24,
+    height: 24,
+    resizeMode: "contain",
+  },
+});
