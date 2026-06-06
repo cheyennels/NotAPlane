@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
     top: 40,
     right: 16,
     backgroundColor: "rgba(20,20,20,0.92)",
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: Colors.white,
     padding: 12,
     gap: 8,
@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
   },
   filterBtn: {
     width: "30%",
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: Colors.white,
     padding: 14,
     alignItems: "center",
@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
   fileReportBtn: {
     width: "40%",
     backgroundColor: Colors.darkGreen,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: Colors.green,
     padding: 14,
     alignItems: "center",
