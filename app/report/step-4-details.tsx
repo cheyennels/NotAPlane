@@ -4,12 +4,13 @@ import { Fonts } from "@/constants/fonts";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { useReport } from "../../context/ReportContext";
 
 const DIRECTIONS = [
   "North",
@@ -27,10 +28,17 @@ const ALTITUDES = ["Low", "Medium", "High", "Unknown"];
 const MOVEMENTS = ["Hovering", "Erratic", "Steady", "Stationary"];
 
 export default function StepFourDetails() {
-  const [direction, setDirection] = useState("");
-  const [altitude, setAltitude] = useState("");
-  const [movement, setMovement] = useState("");
-  const [speed, setSpeed] = useState("");
+  const { form, updateForm } = useReport();
+
+  const [direction, setDirection] = useState(form.direction);
+  const [altitude, setAltitude] = useState(form.altitude);
+  const [movement, setMovement] = useState(form.movement);
+  const [speed, setSpeed] = useState(form.speed);
+
+  function handleContinue() {
+    updateForm({ direction, altitude, movement, speed });
+    router.push("/report/step-5-review" as any);
+  }
 
   return (
     <ReportStepShell
@@ -53,77 +61,71 @@ export default function StepFourDetails() {
         </View>
       }
     >
-        <Text style={styles.label}>DIRECTION OF TRAVEL</Text>
-        <View style={styles.pillGrid}>
-          {DIRECTIONS.map((d) => (
-            <TouchableOpacity
-              key={d}
-              style={[styles.pill, direction === d && styles.pillActive]}
-              onPress={() => setDirection(d)}
+      <Text style={styles.label}>DIRECTION OF TRAVEL</Text>
+      <View style={styles.pillGrid}>
+        {DIRECTIONS.map((d) => (
+          <TouchableOpacity
+            key={d}
+            style={[styles.pill, direction === d && styles.pillActive]}
+            onPress={() => setDirection(d)}
+          >
+            <Text
+              style={[
+                styles.pillText,
+                direction === d && styles.pillTextActive,
+              ]}
             >
-              <Text
-                style={[
-                  styles.pillText,
-                  direction === d && styles.pillTextActive,
-                ]}
-              >
-                {d}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+              {d}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-        {/* Altitude */}
-        <Text style={styles.label}>ESTIMATED ALTITUDE</Text>
-        <View style={styles.pillGrid}>
-          {ALTITUDES.map((a) => (
-            <TouchableOpacity
-              key={a}
-              style={[styles.pill, altitude === a && styles.pillActive]}
-              onPress={() => setAltitude(a)}
+      {/* Altitude */}
+      <Text style={styles.label}>ESTIMATED ALTITUDE</Text>
+      <View style={styles.pillGrid}>
+        {ALTITUDES.map((a) => (
+          <TouchableOpacity
+            key={a}
+            style={[styles.pill, altitude === a && styles.pillActive]}
+            onPress={() => setAltitude(a)}
+          >
+            <Text
+              style={[styles.pillText, altitude === a && styles.pillTextActive]}
             >
-              <Text
-                style={[
-                  styles.pillText,
-                  altitude === a && styles.pillTextActive,
-                ]}
-              >
-                {a}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+              {a}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-        {/* Movement type */}
-        <Text style={styles.label}>MOVEMENT TYPE</Text>
-        <View style={styles.pillGrid}>
-          {MOVEMENTS.map((m) => (
-            <TouchableOpacity
-              key={m}
-              style={[styles.pill, movement === m && styles.pillActive]}
-              onPress={() => setMovement(m)}
+      {/* Movement type */}
+      <Text style={styles.label}>MOVEMENT TYPE</Text>
+      <View style={styles.pillGrid}>
+        {MOVEMENTS.map((m) => (
+          <TouchableOpacity
+            key={m}
+            style={[styles.pill, movement === m && styles.pillActive]}
+            onPress={() => setMovement(m)}
+          >
+            <Text
+              style={[styles.pillText, movement === m && styles.pillTextActive]}
             >
-              <Text
-                style={[
-                  styles.pillText,
-                  movement === m && styles.pillTextActive,
-                ]}
-              >
-                {m}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+              {m}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-        {/* Speed */}
-        <Text style={styles.label}>SPEED OF OBJECT</Text>
-        <TextInput
-          style={styles.textInput}
-          placeholder="estimated speed"
-          placeholderTextColor={Colors.muted}
-          value={speed}
-          onChangeText={setSpeed}
-        />
+      {/* Speed */}
+      <Text style={styles.label}>SPEED OF OBJECT</Text>
+      <TextInput
+        style={styles.textInput}
+        placeholder="estimated speed"
+        placeholderTextColor={Colors.muted}
+        value={speed}
+        onChangeText={setSpeed}
+      />
     </ReportStepShell>
   );
 }

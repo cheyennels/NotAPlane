@@ -3,6 +3,7 @@ import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
 import { router } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useReport } from "../../context/ReportContext";
 
 // Temporary mock data - we'll replace this with real state later
 const mockReport = {
@@ -23,6 +24,7 @@ const mockReport = {
 };
 
 export default function StepFiveReview() {
+  const { form } = useReport();
   return (
     <ReportStepShell
       step={5}
@@ -70,50 +72,50 @@ export default function StepFiveReview() {
 
       <View style={styles.reviewRow}>
         <Text style={styles.reviewKey}>DURATION</Text>
-        <Text style={styles.reviewVal}>{mockReport.duration}</Text>
+        <Text style={styles.reviewVal}>{form.duration}</Text>
       </View>
 
       <View style={styles.reviewRow}>
         <Text style={styles.reviewKey}>DESCRIPTION</Text>
         <Text style={[styles.reviewVal, styles.reviewValSmall]}>
-          {mockReport.description}
+          {form.description}
         </Text>
       </View>
 
       <View style={styles.reviewRow}>
         <Text style={styles.reviewKey}>SHAPE</Text>
-        <Text style={styles.reviewVal}>{mockReport.shape}</Text>
+        <Text style={styles.reviewVal}>{form.shape}</Text>
       </View>
 
       <View style={styles.reviewRow}>
         <Text style={styles.reviewKey}>COLOR</Text>
-        <Text style={styles.reviewVal}>{mockReport.color}</Text>
+        <Text style={styles.reviewVal}>{form.colors.join(", ")}</Text>
       </View>
 
       <View style={styles.reviewRow}>
         <Text style={styles.reviewKey}>DIRECTION</Text>
-        <Text style={styles.reviewVal}>{mockReport.direction}</Text>
+        <Text style={styles.reviewVal}>{form.direction}</Text>
       </View>
 
       <View style={styles.reviewRow}>
         <Text style={styles.reviewKey}>ALTITUDE</Text>
-        <Text style={styles.reviewVal}>{mockReport.altitude}</Text>
+        <Text style={styles.reviewVal}>{form.altitude}</Text>
       </View>
 
       <View style={styles.reviewRow}>
         <Text style={styles.reviewKey}>SOUND</Text>
-        <Text style={styles.reviewVal}>{mockReport.sound}</Text>
+        <Text style={styles.reviewVal}>{form.sound}</Text>
       </View>
 
       <View style={styles.reviewRow}>
         <Text style={styles.reviewKey}>SPEED</Text>
-        <Text style={styles.reviewVal}>{mockReport.speed}</Text>
+        <Text style={styles.reviewVal}>{form.speed}</Text>
       </View>
 
       <View style={[styles.reviewRow, styles.reviewRowLast]}>
         <Text style={styles.reviewKey}>PHOTO</Text>
         <Text style={[styles.reviewVal, styles.reviewValGreen]}>
-          {mockReport.photos}
+          {form.photoUris.length} attached
         </Text>
       </View>
     </ReportStepShell>

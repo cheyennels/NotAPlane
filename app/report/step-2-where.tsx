@@ -5,18 +5,15 @@ import { Fonts } from "@/constants/fonts";
 import * as Location from "expo-location";
 import { router } from "expo-router";
 import { useState } from "react";
-import {
-    Alert,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useReport } from "../../context/ReportContext";
 
 export default function StepTwoWhere() {
+  const { form, updateForm } = useReport();
   const [useCurrentLocation, setUseCurrentLocation] = useState(false);
   const [coordinates, setCoordinates] = useState<[number, number]>([
-    -93.265, 44.9778,
+    form.longitude,
+    form.latitude,
   ]);
 
   async function getCurrentLocation() {
@@ -56,16 +53,21 @@ export default function StepTwoWhere() {
     return `${Math.abs(coord).toFixed(4)}° ${coord >= 0 ? "E" : "W"}`;
   }
 
+  function handleContinue() {
+    updateForm({
+      latitude: coordinates[1],
+      longitude: coordinates[0],
+    });
+    router.push("/report/step-3-what" as any);
+  }
+
   return (
     <ReportStepShell
       step={2}
       stepHeading="Where did you see it?"
       footer={
         <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={styles.continueBtn}
-            onPress={() => router.push("/report/step-3-what" as any)}
-          >
+          <TouchableOpacity style={styles.continueBtn} onPress={handleContinue}>
             <Text style={styles.continueBtnText}>Continue</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -77,49 +79,49 @@ export default function StepTwoWhere() {
         </View>
       }
     >
-        <View style={styles.mapContainer}>
-          <ReportLocationMap
-            style={styles.map}
-            coordinate={coordinates}
-            onCoordinateChange={setCoordinates}
+      <View style={styles.mapContainer}>
+        <ReportLocationMap
+          style={styles.map}
+          coordinate={coordinates}
+          onCoordinateChange={setCoordinates}
+        />
+        <Text style={styles.mapHint}>TAP TO REPOSITION PIN</Text>
+      </View>
+
+      {/* Use current location toggle */}
+      <View style={styles.toggleRow}>
+        <View>
+          <Text style={styles.toggleLabel}>Use my Current Location</Text>
+          <Text style={styles.toggleSub}>
+            Location must be allowed in settings
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.toggle, useCurrentLocation && styles.toggleActive]}
+          onPress={handleToggle}
+        >
+          <View
+            style={[
+              styles.toggleKnob,
+              useCurrentLocation && styles.toggleKnobActive,
+            ]}
           />
-          <Text style={styles.mapHint}>TAP TO REPOSITION PIN</Text>
-        </View>
+        </TouchableOpacity>
+      </View>
 
-        {/* Use current location toggle */}
-        <View style={styles.toggleRow}>
-          <View>
-            <Text style={styles.toggleLabel}>Use my Current Location</Text>
-            <Text style={styles.toggleSub}>
-              Location must be allowed in settings
-            </Text>
-          </View>
-          <TouchableOpacity
-            style={[styles.toggle, useCurrentLocation && styles.toggleActive]}
-            onPress={() => setUseCurrentLocation(!useCurrentLocation)}
-          >
-            <View
-              style={[
-                styles.toggleKnob,
-                useCurrentLocation && styles.toggleKnobActive,
-              ]}
-            />
-          </TouchableOpacity>
-        </View>
+      <View style={styles.divider} />
 
-        <View style={styles.divider} />
-
-        {/* Coordinates */}
-        <View style={styles.coordRow}>
-          <View style={styles.coordBox}>
-            <Text style={styles.coordLabel}>LATITUDE</Text>
-            <Text style={styles.coordValue}>{formatLat(coordinates[1])}</Text>
-          </View>
-          <View style={styles.coordBox}>
-            <Text style={styles.coordLabel}>LONGITUDE</Text>
-            <Text style={styles.coordValue}>{formatLng(coordinates[0])}</Text>
-          </View>
+      {/* Coordinates */}
+      <View style={styles.coordRow}>
+        <View style={styles.coordBox}>
+          <Text style={styles.coordLabel}>LATITUDE</Text>
+          <Text style={styles.coordValue}>{formatLat(coordinates[1])}</Text>
         </View>
+        <View style={styles.coordBox}>
+          <Text style={styles.coordLabel}>LONGITUDE</Text>
+          <Text style={styles.coordValue}>{formatLng(coordinates[0])}</Text>
+        </View>
+      </View>
     </ReportStepShell>
   );
 }

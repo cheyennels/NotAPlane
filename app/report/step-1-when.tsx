@@ -4,12 +4,13 @@ import { Fonts } from "@/constants/fonts";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { useReport } from "../../context/ReportContext";
 
 function formatDate(d: Date) {
   return d
@@ -31,9 +32,17 @@ function formatTime(d: Date) {
 
 export default function StepOneWhen() {
   const [date, setDate] = useState(new Date());
-  const [dateText, setDateText] = useState(() => formatDate(new Date()));
-  const [timeText, setTimeText] = useState(() => formatTime(new Date()));
-  const [duration, setDuration] = useState("");
+  const { form, updateForm } = useReport();
+
+  const [dateText, setDateText] = useState(form.date || formatDate(new Date()));
+  const [timeText, setTimeText] = useState(form.time || formatTime(new Date()));
+  const [duration, setDuration] = useState(form.duration);
+
+  // Update context when continuing
+  function handleContinue() {
+    updateForm({ date: dateText, time: timeText, duration });
+    router.push("/report/step-2-where" as any);
+  }
 
   function useNow() {
     const now = new Date();
@@ -72,10 +81,7 @@ export default function StepOneWhen() {
       stepHeading="When did you see it?"
       footer={
         <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={styles.continueBtn}
-            onPress={() => router.push("/report/step-2-where" as any)}
-          >
+          <TouchableOpacity style={styles.continueBtn} onPress={handleContinue}>
             <Text style={styles.continueBtnText}>Continue</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -87,44 +93,44 @@ export default function StepOneWhen() {
         </View>
       }
     >
-        <Text style={styles.bigDate}>{formatDate(date)}</Text>
-        <Text style={styles.bigTime}>{formatTime(date)}</Text>
+      <Text style={styles.bigDate}>{formatDate(date)}</Text>
+      <Text style={styles.bigTime}>{formatTime(date)}</Text>
 
-        {/* Use now button */}
-        <TouchableOpacity style={styles.useNowBtn} onPress={useNow}>
-          <Text style={styles.useNowText}>Set to current date and time</Text>
-        </TouchableOpacity>
+      {/* Use now button */}
+      <TouchableOpacity style={styles.useNowBtn} onPress={useNow}>
+        <Text style={styles.useNowText}>Set to current date and time</Text>
+      </TouchableOpacity>
 
-        {/* Date field */}
-        <Text style={styles.label}>DATE</Text>
-        <TextInput
-          style={styles.textInput}
-          placeholder="date of event"
-          placeholderTextColor={Colors.muted}
-          value={dateText}
-          onChangeText={handleDateChange}
-        />
+      {/* Date field */}
+      <Text style={styles.label}>DATE</Text>
+      <TextInput
+        style={styles.textInput}
+        placeholder="date of event"
+        placeholderTextColor={Colors.muted}
+        value={dateText}
+        onChangeText={handleDateChange}
+      />
 
-        {/* Time field */}
-        <Text style={styles.label}>TIME</Text>
-        <TextInput
-          style={styles.textInput}
-          placeholder="time (24 hour clock)"
-          placeholderTextColor={Colors.muted}
-          value={timeText}
-          onChangeText={handleTimeChange}
-          keyboardType="numbers-and-punctuation"
-        />
+      {/* Time field */}
+      <Text style={styles.label}>TIME</Text>
+      <TextInput
+        style={styles.textInput}
+        placeholder="time (24 hour clock)"
+        placeholderTextColor={Colors.muted}
+        value={timeText}
+        onChangeText={handleTimeChange}
+        keyboardType="numbers-and-punctuation"
+      />
 
-        {/* Duration field */}
-        <Text style={styles.label}>LENGTH OF OBSERVAITON</Text>
-        <TextInput
-          style={styles.textInput}
-          placeholder="length of time"
-          placeholderTextColor={Colors.muted}
-          value={duration}
-          onChangeText={setDuration}
-        />
+      {/* Duration field */}
+      <Text style={styles.label}>LENGTH OF OBSERVAITON</Text>
+      <TextInput
+        style={styles.textInput}
+        placeholder="length of time"
+        placeholderTextColor={Colors.muted}
+        value={duration}
+        onChangeText={setDuration}
+      />
     </ReportStepShell>
   );
 }

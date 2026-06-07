@@ -5,13 +5,14 @@ import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-    Image,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Image,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { useReport } from "../../context/ReportContext";
 
 const SHAPES = ["Sphere / Orb", "Cigar", "Disc", "Triangle", "Unknown / Other"];
 const SOUNDS = ["Silent", "Humming", "Buzzing", "Loud", "Other"];
@@ -25,11 +26,25 @@ const COLORS = [
 ];
 
 export default function StepThreeWhat() {
-  const [description, setDescription] = useState("");
-  const [selectedShape, setSelectedShape] = useState("");
-  const [selectedSounds, setSelectedSounds] = useState<string[]>([]);
-  const [selectedColors, setSelectedColors] = useState<string[]>([]);
-  const [photos, setPhotos] = useState<string[]>([]);
+  const { form, updateForm } = useReport();
+  const [description, setDescription] = useState(form.description);
+  const [selectedShape, setSelectedShape] = useState(form.shape);
+  const [selectedSounds, setSelectedSounds] = useState<string[]>(
+    form.sound ? form.sound.split(", ") : [],
+  );
+  const [selectedColors, setSelectedColors] = useState<string[]>(form.colors);
+  const [photos, setPhotos] = useState<string[]>(form.photoUris);
+
+  function handleContinue() {
+    updateForm({
+      description,
+      shape: selectedShape,
+      sound: selectedSounds.join(", "),
+      colors: selectedColors,
+      photoUris: photos,
+    });
+    router.push("/report/step-4-details" as any);
+  }
 
   function toggleColor(value: string) {
     setSelectedColors((prev) =>
@@ -71,7 +86,7 @@ export default function StepThreeWhat() {
         <View style={styles.bottomBar}>
           <TouchableOpacity
             style={styles.continueBtn}
-            onPress={() => router.push("/report/step-4-details" as any)}
+            onPress={handleContinue}
           >
             <Text style={styles.continueBtnText}>Continue</Text>
           </TouchableOpacity>
@@ -84,102 +99,98 @@ export default function StepThreeWhat() {
         </View>
       }
     >
-        <Text style={styles.label}>DESCRIPTION OF EVENT</Text>
-        <TextInput
-          style={styles.textArea}
-          placeholder="description of event (280 chars)"
-          placeholderTextColor={Colors.muted}
-          value={description}
-          onChangeText={(t) => setDescription(t.slice(0, 280))}
-          multiline
-          numberOfLines={4}
-          textAlignVertical="top"
-        />
-        <Text style={styles.charCount}>{description.length}/280</Text>
+      <Text style={styles.label}>DESCRIPTION OF EVENT</Text>
+      <TextInput
+        style={styles.textArea}
+        placeholder="description of event (280 chars)"
+        placeholderTextColor={Colors.muted}
+        value={description}
+        onChangeText={(t) => setDescription(t.slice(0, 280))}
+        multiline
+        numberOfLines={4}
+        textAlignVertical="top"
+      />
+      <Text style={styles.charCount}>{description.length}/280</Text>
 
-        {/* Shape */}
-        <Text style={styles.label}>SHAPE</Text>
-        <View style={styles.pillGrid}>
-          {SHAPES.map((shape) => (
-            <TouchableOpacity
-              key={shape}
+      {/* Shape */}
+      <Text style={styles.label}>SHAPE</Text>
+      <View style={styles.pillGrid}>
+        {SHAPES.map((shape) => (
+          <TouchableOpacity
+            key={shape}
+            style={[styles.pill, selectedShape === shape && styles.pillActive]}
+            onPress={() => setSelectedShape(shape)}
+          >
+            <Text
               style={[
-                styles.pill,
-                selectedShape === shape && styles.pillActive,
+                styles.pillText,
+                selectedShape === shape && styles.pillTextActive,
               ]}
-              onPress={() => setSelectedShape(shape)}
             >
-              <Text
-                style={[
-                  styles.pillText,
-                  selectedShape === shape && styles.pillTextActive,
-                ]}
-              >
-                {shape}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Sound */}
-        <Text style={styles.label}>SOUND</Text>
-        <View style={styles.pillGrid}>
-          {SOUNDS.map((sound) => (
-            <TouchableOpacity
-              key={sound}
-              style={[
-                styles.pill,
-                selectedSounds.includes(sound) && styles.pillActive,
-              ]}
-              onPress={() => toggleSound(sound)}
-            >
-              <Text
-                style={[
-                  styles.pillText,
-                  selectedSounds.includes(sound) && styles.pillTextActive,
-                ]}
-              >
-                {sound}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Color */}
-        <Text style={styles.label}>COLOR</Text>
-        <View style={styles.colorRow}>
-          {COLORS.map((color) => (
-            <TouchableOpacity
-              key={color.value}
-              style={[
-                styles.colorSwatch,
-                { backgroundColor: color.hex },
-                selectedColors.includes(color.value) &&
-                  styles.colorSwatchActive,
-              ]}
-              onPress={() => toggleColor(color.value)}
-            />
-          ))}
-        </View>
-
-        {/* Photo */}
-        <Text style={styles.label}>PHOTO</Text>
-        <View style={styles.photoRow}>
-          <TouchableOpacity style={styles.photoAdd} onPress={pickImage}>
-            <Text style={styles.photoAddText}>+</Text>
+              {shape}
+            </Text>
           </TouchableOpacity>
-          {photos.map((uri) => (
-            <View key={uri} style={styles.photoThumb}>
-              <Image source={{ uri }} style={styles.photoImage} />
-              <TouchableOpacity
-                style={styles.photoRemove}
-                onPress={() => removePhoto(uri)}
-              >
-                <Text style={styles.photoRemoveText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-        </View>
+        ))}
+      </View>
+
+      {/* Sound */}
+      <Text style={styles.label}>SOUND</Text>
+      <View style={styles.pillGrid}>
+        {SOUNDS.map((sound) => (
+          <TouchableOpacity
+            key={sound}
+            style={[
+              styles.pill,
+              selectedSounds.includes(sound) && styles.pillActive,
+            ]}
+            onPress={() => toggleSound(sound)}
+          >
+            <Text
+              style={[
+                styles.pillText,
+                selectedSounds.includes(sound) && styles.pillTextActive,
+              ]}
+            >
+              {sound}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Color */}
+      <Text style={styles.label}>COLOR</Text>
+      <View style={styles.colorRow}>
+        {COLORS.map((color) => (
+          <TouchableOpacity
+            key={color.value}
+            style={[
+              styles.colorSwatch,
+              { backgroundColor: color.hex },
+              selectedColors.includes(color.value) && styles.colorSwatchActive,
+            ]}
+            onPress={() => toggleColor(color.value)}
+          />
+        ))}
+      </View>
+
+      {/* Photo */}
+      <Text style={styles.label}>PHOTO</Text>
+      <View style={styles.photoRow}>
+        <TouchableOpacity style={styles.photoAdd} onPress={pickImage}>
+          <Text style={styles.photoAddText}>+</Text>
+        </TouchableOpacity>
+        {photos.map((uri) => (
+          <View key={uri} style={styles.photoThumb}>
+            <Image source={{ uri }} style={styles.photoImage} />
+            <TouchableOpacity
+              style={styles.photoRemove}
+              onPress={() => removePhoto(uri)}
+            >
+              <Text style={styles.photoRemoveText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        ))}
+      </View>
     </ReportStepShell>
   );
 }
