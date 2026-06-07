@@ -49,17 +49,20 @@ export default function RootLayout() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Auth gate — runs whenever session or route changes
   useEffect(() => {
     if (!initialized) return;
 
     const inAuthGroup = segments[0] === "(auth)";
 
-    if (session && inAuthGroup) {
-      router.replace("/(tabs)/map");
-    } else if (!session && !inAuthGroup) {
+    if (!session && !inAuthGroup) {
+      // Not logged in and not on auth screen → send to login
       router.replace("/(auth)");
+    } else if (session && inAuthGroup) {
+      // Logged in but on auth screen → send to map
+      router.replace("/(tabs)/map" as any);
     }
-  }, [session, initialized, segments, router]);
+  }, [session, initialized, segments]);
 
   if (!loaded || !initialized) {
     return null;

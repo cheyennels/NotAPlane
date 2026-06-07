@@ -4,11 +4,20 @@ import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { supabase } from "../../lib/supabase";
 
-// @ts-ignore
-import mapboxgl from "mapbox-gl";
+// Only import mapbox-gl on web
+let mapboxgl: any = null;
+if (Platform.OS === "web") {
+  mapboxgl = require("mapbox-gl");
+}
 
 type Sighting = MapSighting;
 
@@ -17,7 +26,8 @@ export default function MapScreen() {
 
   // Hide Mapbox logo on web
   useEffect(() => {
-    if (typeof mapboxgl !== "undefined") {
+    if (Platform.OS !== "web") return;
+    if (mapboxgl) {
       mapboxgl.accessToken = process.env.EXPO_PUBLIC_MAPBOX_TOKEN!;
     }
     if (typeof document !== "undefined") {
@@ -48,7 +58,15 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container}>
-      <MapboxMap style={styles.map} sightings={sightings} />
+      {Platform.OS === "web" ? (
+        <MapboxMap style={styles.map} sightings={sightings} />
+      ) : (
+        <View style={styles.mapFallback}>
+          <Text style={styles.mapFallbackText}>
+            Map requires a native build.{"\n"}Use web preview for now.
+          </Text>
+        </View>
+      )}
 
       {/* Legend */}
       <View style={styles.legend}>
@@ -158,6 +176,21 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.display,
     fontSize: 12,
     color: Colors.green,
+    letterSpacing: 1,
+  },
+  mapFallback: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.black,
+    gap: 12,
+  },
+  mapFallbackText: {
+    fontFamily: Fonts.mono,
+    fontSize: 11,
+    color: Colors.muted,
+    textAlign: "center",
+    lineHeight: 18,
     letterSpacing: 1,
   },
 });
