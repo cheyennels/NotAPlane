@@ -1,57 +1,14 @@
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
 import {
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-
-const MOCK_SIGHTINGS = [
-  {
-    id: "1",
-    location: "Minneapolis, MN",
-    date: "July 7th",
-    time: "12:42 AM",
-    description:
-      "This flight left Florida at 5:45pm and will be landing in New York at 10:30pm. Altitude is low.",
-    status: "unexplained",
-    corroborations: 3,
-  },
-  {
-    id: "2",
-    location: "Eden Prairie, MN",
-    date: "June 13th",
-    time: "7:45 PM",
-    description:
-      "This flight left Florida at 5:45pm and will be landing in New York at 10:30pm. Altitude is low.",
-    status: "partial",
-    corroborations: 25,
-  },
-  {
-    id: "3",
-    location: "Minneapolis, MN",
-    date: "May 27th",
-    time: "10:14 PM",
-    description:
-      "This flight left Florida at 5:45pm and will be landing in New York at 10:30pm. Altitude is low.",
-    status: "explained",
-    match: "Delta Airlines WN2847",
-    corroborations: 75,
-  },
-  {
-    id: "4",
-    location: "Minneapolis, MN",
-    date: "May 27th",
-    time: "10:14 PM",
-    description:
-      "This flight left Florida at 5:45pm and will be landing in New York at 10:30pm. Altitude is low.",
-    status: "explained",
-    match: "Delta Airlines WN2847",
-    corroborations: 75,
-  },
-];
+import { useSightings } from "../../hooks/useSightings";
 
 function getStatusColor(status: string) {
   switch (status) {
@@ -62,7 +19,7 @@ function getStatusColor(status: string) {
     case "explained":
       return Colors.blue;
     default:
-      return Colors.muted;
+      return Colors.green;
   }
 }
 
@@ -75,21 +32,46 @@ function getStatusLabel(status: string) {
     case "explained":
       return "Explained";
     default:
-      return "Unknown";
+      return "Pending";
   }
 }
 
 export default function SightingsScreen() {
-  const totalReports = 7;
-  const unresolved = 3;
-  const corroborations = 12;
+  const { sightings, loading, error, refetch } = useSightings();
+
+  const unresolved = sightings.filter(
+    (s) => s.status === "unexplained" || s.status === "pending",
+  ).length;
+
+  const corroborations = 0; // will wire up later
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator color={Colors.green} size="large" />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.errorText}>Error: {error}</Text>
+        <TouchableOpacity onPress={refetch}>
+          <Text style={styles.retryText}>Tap to retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>My Sightings</Text>
-        <Text style={styles.headerSub}>{totalReports} Reports Submitted</Text>
+        <Text style={styles.headerSub}>
+          {sightings.length} Reports Submitted
+        </Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.inner}>
@@ -97,7 +79,7 @@ export default function SightingsScreen() {
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <Text style={styles.statLabel}>TOTAL REPORTS</Text>
-            <Text style={styles.statVal}>{totalReports}</Text>
+            <Text style={styles.statVal}>{sightings.length}</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statLabel}>UNRESOLVED</Text>
@@ -109,22 +91,31 @@ export default function SightingsScreen() {
           </View>
         </View>
 
+        {/* Empty state */}
+        {sightings.length === 0 && (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>No sightings yet</Text>
+            <Text style={styles.emptyBody}>
+              Tap File Report on the map to submit your first sighting.
+            </Text>
+          </View>
+        )}
+
         {/* Sighting cards */}
-        {MOCK_SIGHTINGS.map((sighting) => (
+        {sightings.map((sighting) => (
           <TouchableOpacity
             key={sighting.id}
             style={styles.sightingCard}
             onPress={() => {}}
           >
-            {/* Status label */}
-            {sighting.match ? (
+            {sighting.matched_flight ? (
               <Text
                 style={[
                   styles.matchLabel,
                   { color: getStatusColor(sighting.status) },
                 ]}
               >
-                {sighting.match.toUpperCase()}
+                {sighting.matched_flight.toUpperCase()}
               </Text>
             ) : (
               <Text
@@ -137,23 +128,18 @@ export default function SightingsScreen() {
               </Text>
             )}
 
-            {/* Location */}
             <Text style={styles.cardLocation}>
-              {sighting.location.toUpperCase()}
+              {sighting.latitude.toFixed(4)}° N ·{" "}
+              {Math.abs(sighting.longitude).toFixed(4)}° W
             </Text>
 
-            {/* Date */}
-            <Text style={styles.cardDate}>
-              {sighting.date} · {sighting.time}
+            <Text style={styles.cardDate}>{sighting.sighted_at}</Text>
+
+            <Text style={styles.cardDescription} numberOfLines={2}>
+              {sighting.description || "No description provided."}
             </Text>
 
-            {/* Description */}
-            <Text style={styles.cardDescription}>{sighting.description}</Text>
-
-            {/* Corroborations */}
-            <Text style={styles.corrobLabel}>
-              {sighting.corroborations} CORROBORATIONS
-            </Text>
+            <Text style={styles.corrobLabel}>0 Corroborations</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -165,6 +151,26 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.black,
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: Colors.black,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+  },
+  errorText: {
+    fontFamily: Fonts.mono,
+    fontSize: 11,
+    color: Colors.red,
+    textAlign: "center",
+  },
+  retryText: {
+    fontFamily: Fonts.mono,
+    fontSize: 11,
+    color: Colors.green,
+    textAlign: "center",
+    textDecorationLine: "underline",
   },
   header: {
     paddingHorizontal: 24,
@@ -192,12 +198,11 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: "row",
-    gap: 10,
+    gap: 0,
     marginBottom: 8,
   },
   statCard: {
     flex: 1,
-    backgroundColor: Colors.surface,
     padding: 12,
   },
   statLabel: {
@@ -205,15 +210,35 @@ const styles = StyleSheet.create({
     fontSize: 8,
     color: Colors.green,
     letterSpacing: 1,
-    textTransform: "uppercase",
     marginBottom: 6,
     lineHeight: 13,
+    textTransform: "uppercase",
   },
   statVal: {
     fontFamily: Fonts.display,
     fontSize: 24,
     color: Colors.white,
     letterSpacing: 1,
+  },
+  emptyState: {
+    borderWidth: 2,
+    borderColor: Colors.white,
+    padding: 24,
+    alignItems: "center",
+    gap: 8,
+  },
+  emptyTitle: {
+    fontFamily: Fonts.display,
+    fontSize: 14,
+    color: Colors.white,
+    letterSpacing: 1,
+  },
+  emptyBody: {
+    fontFamily: Fonts.mono,
+    fontSize: 10,
+    color: Colors.muted,
+    textAlign: "center",
+    lineHeight: 16,
   },
   sightingCard: {
     borderWidth: 2,
