@@ -5,12 +5,14 @@ import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useEffect, useRef } from "react";
 import { StyleSheet, ViewStyle } from "react-native";
+import { getSightingPinColor, MapSighting } from "./types";
 
 const DEFAULT_CENTER: [number, number] = [-93.265, 44.9778];
 const STYLE_ID = "notaplane-hide-mapbox-controls";
 
 type MapboxMapProps = {
   style?: object;
+  sightings?: MapSighting[];
 };
 
 function hideMapboxControls(container: HTMLElement) {
@@ -58,8 +60,13 @@ function ensureGlobalHideStyles() {
   document.head.appendChild(style);
 }
 
-export default function MapboxMapBase({ style }: MapboxMapProps) {
+export default function MapboxMapBase({
+  style,
+  sightings = [],
+}: MapboxMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
+  const markersRef = useRef<mapboxgl.Marker[]>([]);
   const token = getMapboxAccessToken();
 
   useEffect(() => {
@@ -67,7 +74,7 @@ export default function MapboxMapBase({ style }: MapboxMapProps) {
 
     ensureGlobalHideStyles();
     const container = containerRef.current;
-    if (!token || !container) return;
+    if (!container) return;
 
     mapboxgl.accessToken = token;
 
@@ -86,11 +93,35 @@ export default function MapboxMapBase({ style }: MapboxMapProps) {
     observer.observe(container, { childList: true, subtree: true });
     hide();
 
+    mapRef.current = map;
+
     return () => {
       observer.disconnect();
+      markersRef.current.forEach((marker) => marker.remove());
+      markersRef.current = [];
       map.remove();
+      mapRef.current = null;
     };
   }, [token]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    markersRef.current.forEach((marker) => marker.remove());
+    markersRef.current = sightings.map((sighting) => {
+      const element = document.createElement("div");
+      element.style.width = "12px";
+      element.style.height = "12px";
+      element.style.borderRadius = "50%";
+      element.style.backgroundColor = getSightingPinColor(sighting.status);
+      element.style.border = `2px solid ${Colors.black}`;
+
+      return new mapboxgl.Marker({ element })
+        .setLngLat([sighting.longitude, sighting.latitude])
+        .addTo(map);
+    });
+  }, [sightings]);
 
   if (!token) {
     return (

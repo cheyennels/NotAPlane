@@ -1,13 +1,54 @@
 import MapboxMap from "@/components/map/MapboxMap";
+import { MapSighting } from "@/components/map/types";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
 import { router } from "expo-router";
+import { useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { supabase } from "../../lib/supabase";
+
+// @ts-ignore
+import mapboxgl from "mapbox-gl";
+
+type Sighting = MapSighting;
 
 export default function MapScreen() {
+  const [sightings, setSightings] = useState<Sighting[]>([]);
+
+  // Hide Mapbox logo on web
+  useEffect(() => {
+    if (typeof mapboxgl !== "undefined") {
+      mapboxgl.accessToken = process.env.EXPO_PUBLIC_MAPBOX_TOKEN!;
+    }
+    if (typeof document !== "undefined") {
+      const style = document.createElement("style");
+      style.textContent = `
+        .mapboxgl-ctrl-logo { display: none !important; }
+        .mapboxgl-ctrl-attrib { display: none !important; }
+        .mapboxgl-ctrl-bottom-right { display: none !important; }
+        .mapboxgl-ctrl-bottom-left { display: none !important; }
+      `;
+      document.head.appendChild(style);
+      return () => {
+        document.head.removeChild(style);
+      };
+    }
+  }, []);
+
+  // Fetch sightings from Supabase
+  useEffect(() => {
+    async function fetchSightings() {
+      const { data } = await supabase
+        .from("sightings")
+        .select("id, latitude, longitude, status");
+      if (data) setSightings(data);
+    }
+    fetchSightings();
+  }, []);
+
   return (
     <View style={styles.container}>
-      <MapboxMap style={styles.map} />
+      <MapboxMap style={styles.map} sightings={sightings} />
 
       {/* Legend */}
       <View style={styles.legend}>
@@ -24,6 +65,10 @@ export default function MapScreen() {
         <View style={styles.legendRow}>
           <View style={[styles.legendDot, { backgroundColor: Colors.red }]} />
           <Text style={styles.legendText}>Unexplained</Text>
+        </View>
+        <View style={styles.legendRow}>
+          <View style={[styles.legendDot, { backgroundColor: Colors.green }]} />
+          <Text style={styles.legendText}>Pending</Text>
         </View>
       </View>
 

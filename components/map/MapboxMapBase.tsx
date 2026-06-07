@@ -7,14 +7,19 @@ import {
   isExpoGo,
 } from "@/lib/mapbox";
 import { StyleSheet, Text, View } from "react-native";
+import { getSightingPinColor, MapSighting } from "./types";
 
 const DEFAULT_CENTER: [number, number] = [-93.265, 44.9778];
 
 type MapboxMapProps = {
   style?: object;
+  sightings?: MapSighting[];
 };
 
-export default function MapboxMapBase({ style }: MapboxMapProps) {
+export default function MapboxMapBase({
+  style,
+  sightings = [],
+}: MapboxMapProps) {
   const token = getMapboxAccessToken();
 
   if (!token) {
@@ -41,14 +46,13 @@ export default function MapboxMapBase({ style }: MapboxMapProps) {
     );
   }
 
-  // Set the token before MapView mounts — useEffect is too late on web.
   initializeMapbox();
 
-  // Loaded lazily so Expo Go never evaluates the native module at import time.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const Mapbox = require("@rnmapbox/maps");
   const MapView = Mapbox.MapView ?? Mapbox.default?.MapView;
   const Camera = Mapbox.Camera ?? Mapbox.default?.Camera;
+  const MarkerView = Mapbox.MarkerView ?? Mapbox.default?.MarkerView;
 
   return (
     <MapView
@@ -64,6 +68,19 @@ export default function MapboxMapBase({ style }: MapboxMapProps) {
         centerCoordinate={DEFAULT_CENTER}
         animationMode="none"
       />
+      {sightings.map((sighting) => (
+        <MarkerView
+          key={sighting.id}
+          coordinate={[sighting.longitude, sighting.latitude]}
+        >
+          <View
+            style={[
+              styles.pin,
+              { backgroundColor: getSightingPinColor(sighting.status) },
+            ]}
+          />
+        </MarkerView>
+      ))}
     </MapView>
   );
 }
@@ -71,6 +88,13 @@ export default function MapboxMapBase({ style }: MapboxMapProps) {
 const styles = StyleSheet.create({
   map: {
     flex: 1,
+  },
+  pin: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: Colors.black,
   },
   fallback: {
     flex: 1,
