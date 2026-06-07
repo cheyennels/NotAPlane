@@ -2,29 +2,64 @@ import ReportStepShell from "@/components/report/ReportStepShell";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
 import { router } from "expo-router";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { useReport } from "../../context/ReportContext";
-
-// Temporary mock data - we'll replace this with real state later
-const mockReport = {
-  date: "June 28th, 2026",
-  time: "18:25",
-  duration: "~ 5 minutes",
-  latitude: "44.9778 * N",
-  longitude: "44.9778 * W",
-  description:
-    "Bright silent disk, moving NW. Stopped for about 4 minutes, I took attached photo before it sped off and vanished.",
-  shape: "Cigar / Unknown / Other",
-  color: "Blue",
-  direction: "Northwest",
-  altitude: "High",
-  sound: "Silent",
-  speed: "Unknown",
-  photos: "1 attached",
-};
+import { supabase } from "../../lib/supabase";
 
 export default function StepFiveReview() {
-  const { form } = useReport();
+  const { form, resetForm } = useReport();
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit() {
+    setLoading(true);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      Alert.alert("Error", "You must be logged in to submit a sighting.");
+      setLoading(false);
+      return;
+    }
+
+    const { error } = await supabase.from("sightings").insert({
+      user_id: user.id,
+      sighted_at: `${form.date} ${form.time}`,
+      duration: form.duration,
+      latitude: form.latitude,
+      longitude: form.longitude,
+      description: form.description,
+      shape: form.shape,
+      colors: form.colors,
+      sound: form.sound,
+      photo_urls: form.photoUris,
+      direction: form.direction,
+      altitude: form.altitude,
+      movement: form.movement,
+      speed: form.speed,
+      status: "pending",
+    });
+
+    if (error) {
+      Alert.alert("Error", error.message);
+      setLoading(false);
+      return;
+    }
+
+    resetForm();
+    router.replace("/report/result" as any);
+    setLoading(false);
+  }
+
   return (
     <ReportStepShell
       step={5}
@@ -32,10 +67,15 @@ export default function StepFiveReview() {
       footer={
         <View style={styles.bottomBar}>
           <TouchableOpacity
-            style={styles.submitBtn}
-            onPress={() => router.push("/report/result" as any)}
+            style={[styles.submitBtn, loading && styles.btnDisabled]}
+            onPress={handleSubmit}
+            disabled={loading}
           >
-            <Text style={styles.submitBtnText}>Submit Report</Text>
+            {loading ? (
+              <ActivityIndicator color={Colors.black} />
+            ) : (
+              <Text style={styles.submitBtnText}>Submit Report</Text>
+            )}
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.editBtn}
@@ -55,67 +95,70 @@ export default function StepFiveReview() {
       <View style={styles.reviewRow}>
         <Text style={styles.reviewKey}>DATE & TIME</Text>
         <Text style={styles.reviewVal}>
-          {mockReport.date}
+          {form.date}
           {"\n"}
-          {mockReport.time}
+          {form.time}
         </Text>
       </View>
 
       <View style={styles.reviewRow}>
         <Text style={styles.reviewKey}>LOCATION</Text>
         <Text style={[styles.reviewVal, styles.reviewValGreen]}>
-          {mockReport.latitude}
-          {"\n"}
-          {mockReport.longitude}
+          {form.latitude.toFixed(4)}° N{"\n"}
+          {Math.abs(form.longitude).toFixed(4)}° W
         </Text>
       </View>
 
       <View style={styles.reviewRow}>
         <Text style={styles.reviewKey}>DURATION</Text>
-        <Text style={styles.reviewVal}>{form.duration}</Text>
+        <Text style={styles.reviewVal}>{form.duration || "—"}</Text>
       </View>
 
       <View style={styles.reviewRow}>
         <Text style={styles.reviewKey}>DESCRIPTION</Text>
         <Text style={[styles.reviewVal, styles.reviewValSmall]}>
-          {form.description}
+          {form.description || "—"}
         </Text>
       </View>
 
       <View style={styles.reviewRow}>
         <Text style={styles.reviewKey}>SHAPE</Text>
-        <Text style={styles.reviewVal}>{form.shape}</Text>
+        <Text style={styles.reviewVal}>{form.shape || "—"}</Text>
       </View>
 
       <View style={styles.reviewRow}>
         <Text style={styles.reviewKey}>COLOR</Text>
-        <Text style={styles.reviewVal}>{form.colors.join(", ")}</Text>
+        <Text style={styles.reviewVal}>
+          {form.colors.length > 0 ? form.colors.join(", ") : "—"}
+        </Text>
       </View>
 
       <View style={styles.reviewRow}>
         <Text style={styles.reviewKey}>DIRECTION</Text>
-        <Text style={styles.reviewVal}>{form.direction}</Text>
+        <Text style={styles.reviewVal}>{form.direction || "—"}</Text>
       </View>
 
       <View style={styles.reviewRow}>
         <Text style={styles.reviewKey}>ALTITUDE</Text>
-        <Text style={styles.reviewVal}>{form.altitude}</Text>
+        <Text style={styles.reviewVal}>{form.altitude || "—"}</Text>
       </View>
 
       <View style={styles.reviewRow}>
         <Text style={styles.reviewKey}>SOUND</Text>
-        <Text style={styles.reviewVal}>{form.sound}</Text>
+        <Text style={styles.reviewVal}>{form.sound || "—"}</Text>
       </View>
 
       <View style={styles.reviewRow}>
         <Text style={styles.reviewKey}>SPEED</Text>
-        <Text style={styles.reviewVal}>{form.speed}</Text>
+        <Text style={styles.reviewVal}>{form.speed || "—"}</Text>
       </View>
 
       <View style={[styles.reviewRow, styles.reviewRowLast]}>
         <Text style={styles.reviewKey}>PHOTO</Text>
         <Text style={[styles.reviewVal, styles.reviewValGreen]}>
-          {form.photoUris.length} attached
+          {form.photoUris.length > 0
+            ? `${form.photoUris.length} attached`
+            : "None"}
         </Text>
       </View>
     </ReportStepShell>
@@ -173,6 +216,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.black,
     letterSpacing: 1,
+  },
+  btnDisabled: {
+    opacity: 0.5,
   },
   editBtn: {
     borderWidth: 2,
