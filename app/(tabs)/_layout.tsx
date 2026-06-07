@@ -1,5 +1,3 @@
-import { Colors } from "@/constants/colors";
-import { Fonts } from "@/constants/fonts";
 import { Tabs } from "expo-router";
 import { Image, StyleSheet } from "react-native";
 
@@ -9,10 +7,11 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: Colors.green,
-        tabBarInactiveTintColor: Colors.white,
-        tabBarLabelPosition: "below-icon",
+        tabBarActiveTintColor: "#39FF14",
+        tabBarInactiveTintColor: "#6B6B6B",
         tabBarLabelStyle: styles.tabLabel,
+        tabBarShowLabel: true,
+        tabBarIconStyle: { marginTop: 4 },
       }}
     >
       <Tabs.Screen
@@ -27,7 +26,6 @@ export default function TabLayout() {
                   : require("../../assets/images/map.png")
               }
               style={styles.icon}
-              resizeMode="contain"
             />
           ),
         }}
@@ -44,7 +42,6 @@ export default function TabLayout() {
                   : require("../../assets/images/reports.png")
               }
               style={styles.icon}
-              resizeMode="contain"
             />
           ),
         }}
@@ -61,7 +58,6 @@ export default function TabLayout() {
                   : require("../../assets/images/notification.png")
               }
               style={styles.icon}
-              resizeMode="contain"
             />
           ),
         }}
@@ -78,29 +74,33 @@ export default function TabLayout() {
                   : require("../../assets/images/profile.png")
               }
               style={styles.icon}
-              resizeMode="contain"
             />
           ),
         }}
       />
+      {/* Hide sub-routes from tab bar */}
+      <Tabs.Screen name="profile/change-password" options={{ href: null }} />
     </Tabs>
   );
 }
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: Colors.surface,
+    backgroundColor: "#1C1C1C",
+    borderTopWidth: 1,
+    borderTopColor: "#F2F2F0",
     height: 88,
     paddingTop: 10,
     paddingBottom: 10,
   },
   tabLabel: {
-    fontFamily: Fonts.mono,
+    fontFamily: "SpaceMono",
     fontSize: 10,
-    marginTop: 2,
+    marginTop: 4,
   },
   icon: {
     width: 24,
     height: 24,
+    resizeMode: "contain",
   },
 });

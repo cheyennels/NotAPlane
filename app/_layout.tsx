@@ -1,5 +1,5 @@
-import { SpaceMono_400Regular } from "@expo-google-fonts/space-mono";
 import { Fonts } from "@/constants/fonts";
+import { SpaceMono_400Regular } from "@expo-google-fonts/space-mono";
 import { Session } from "@supabase/supabase-js";
 import { useFonts } from "expo-font";
 import { Stack, useRouter, useSegments } from "expo-router";
