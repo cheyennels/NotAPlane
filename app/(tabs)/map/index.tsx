@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { useFilters } from "../../../context/FilterContext";
+import { supabase } from "../../../lib/supabase";
 
 // Only import mapbox-gl on web
 let mapboxgl: any = null;
@@ -22,10 +23,22 @@ if (Platform.OS === "web") {
 type Sighting = MapSighting & {
   created_at: string;
 };
+
 export default function MapScreen() {
   const [sightings, setSightings] = useState<Sighting[]>([]);
   const [allSightings, setAllSightings] = useState<Sighting[]>([]);
   const { filters } = useFilters();
+
+  // Fetch all sightings from Supabase
+  useEffect(() => {
+    async function fetchSightings() {
+      const { data } = await supabase
+        .from("sightings")
+        .select("id, latitude, longitude, status, created_at");
+      if (data) setAllSightings(data);
+    }
+    fetchSightings();
+  }, []);
 
   // Apply filters whenever allSightings or filters change
   useEffect(() => {
