@@ -1,12 +1,13 @@
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Image,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -40,9 +41,92 @@ function ToggleRow({
 }
 
 export default function ProfileScreen() {
+  const [userName, setUserName] = useState("");
+  const [userEmail, setUserEmail] = useState("");
+  const [memberSince, setMemberSince] = useState("");
+  const [totalReports, setTotalReports] = useState(0);
+  const [unresolved, setUnresolved] = useState(0);
+  const [corroborations, setCorroborations] = useState(0);
+  const [userLocation, setUserLocation] = useState("");
+  const [editingLocation, setEditingLocation] = useState(false);
+  const [locationInput, setLocationInput] = useState("");
+  useEffect(() => {
+    fetchUserData();
+  }, []);
+
+  async function fetchUserData() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    setUserEmail(user.email || "");
+    const date = new Date(user.created_at);
+    setMemberSince(
+      date.toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+      }),
+    );
+
+    // Get profile data including location
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("name, location")
+      .eq("id", user.id)
+      .single();
+
+    if (profile) {
+      setUserName(profile.name || user.email?.split("@")[0] || "User");
+      setUserLocation(profile.location || "");
+    } else {
+      setUserName(
+        user.user_metadata?.name || user.email?.split("@")[0] || "User",
+      );
+    }
+
+    // Get sightings stats
+    const { data: sightings } = await supabase
+      .from("sightings")
+      .select("id, status")
+      .eq("user_id", user.id);
+
+    if (sightings) {
+      setTotalReports(sightings.length);
+      setUnresolved(
+        sightings.filter(
+          (s) => s.status === "unexplained" || s.status === "pending",
+        ).length,
+      );
+
+      const { count } = await supabase
+        .from("corroborations")
+        .select("*", { count: "exact", head: true })
+        .in(
+          "sighting_id",
+          sightings.map((s) => s.id),
+        );
+
+      setCorroborations(count || 0);
+    }
+  }
   async function handleLogout() {
     await supabase.auth.signOut();
     router.replace("/(auth)" as any);
+  }
+
+  async function handleSaveLocation() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    await supabase
+      .from("profiles")
+      .upsert({ id: user.id, location: locationInput });
+
+    setUserLocation(locationInput);
+    setEditingLocation(false);
   }
 
   return (
@@ -64,9 +148,18 @@ export default function ProfileScreen() {
             />
           </View>
           <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>Cheyenne S.</Text>
-            <Text style={styles.profileSince}>Member since July 2026</Text>
-            <Text style={styles.profileLocation}>Minneapolis, MN</Text>
+            <Text style={styles.profileName}>{userName || "Loading..."}</Text>
+            <Text style={styles.profileSince}>Member since {memberSince}</Text>
+            <TouchableOpacity
+              onPress={() => {
+                setLocationInput(userLocation);
+                setEditingLocation(true);
+              }}
+            >
+              <Text style={styles.profileLocation}>
+                {userLocation || "Tap to set location"}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -74,15 +167,15 @@ export default function ProfileScreen() {
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <Text style={styles.statLabel}>TOTAL REPORTS</Text>
-            <Text style={styles.statVal}>7</Text>
+            <Text style={styles.statVal}>{totalReports}</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statLabel}>UNRESOLVED</Text>
-            <Text style={styles.statVal}>3</Text>
+            <Text style={styles.statVal}>{unresolved}</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statLabel}>CORROBORATIONS</Text>
-            <Text style={styles.statVal}>12</Text>
+            <Text style={styles.statVal}>{corroborations}</Text>
           </View>
         </View>
 
@@ -131,6 +224,31 @@ export default function ProfileScreen() {
           <Text style={styles.btnDangerText}>Delete Account</Text>
         </TouchableOpacity>
       </View>
+      {editingLocation && (
+        <View style={styles.editModal}>
+          <Text style={styles.editModalTitle}>Edit Location</Text>
+          <TextInput
+            style={styles.editModalInput}
+            placeholder="e.g. Minneapolis, MN"
+            placeholderTextColor={Colors.muted}
+            value={locationInput}
+            onChangeText={setLocationInput}
+            autoFocus
+          />
+          <TouchableOpacity
+            style={styles.editModalSave}
+            onPress={handleSaveLocation}
+          >
+            <Text style={styles.editModalSaveText}>Save</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.editModalCancel}
+            onPress={() => setEditingLocation(false)}
+          >
+            <Text style={styles.editModalCancelText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
@@ -336,6 +454,57 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.display,
     fontSize: 12,
     color: Colors.red,
+    letterSpacing: 1,
+  },
+  editModal: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: Colors.black,
+    padding: 24,
+    justifyContent: "center",
+    gap: 12,
+    zIndex: 100,
+  },
+  editModalTitle: {
+    fontFamily: Fonts.display,
+    fontSize: 18,
+    color: Colors.white,
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  editModalInput: {
+    backgroundColor: Colors.surface2,
+    borderWidth: 2,
+    borderColor: Colors.white,
+    padding: 14,
+    fontFamily: Fonts.mono,
+    fontSize: 12,
+    color: Colors.white,
+  },
+  editModalSave: {
+    backgroundColor: Colors.green,
+    padding: 16,
+    alignItems: "center",
+  },
+  editModalSaveText: {
+    fontFamily: Fonts.display,
+    fontSize: 12,
+    color: Colors.black,
+    letterSpacing: 1,
+  },
+  editModalCancel: {
+    borderWidth: 2,
+    borderColor: Colors.white,
+    padding: 16,
+    alignItems: "center",
+  },
+  editModalCancelText: {
+    fontFamily: Fonts.display,
+    fontSize: 12,
+    color: Colors.white,
     letterSpacing: 1,
   },
 });

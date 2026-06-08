@@ -1,17 +1,16 @@
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
-import { getAuthErrorMessage } from "@/lib/auth-errors";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
 } from "react-native";
 import { supabase } from "../../lib/supabase";
 
@@ -49,7 +48,7 @@ export default function SignUpScreen() {
 
     setLoading(true);
     const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
+      email,
       password,
       options: {
         data: { name },
@@ -57,16 +56,25 @@ export default function SignUpScreen() {
     });
 
     if (error) {
-      Alert.alert("Sign Up Failed", getAuthErrorMessage(error.message));
-    } else if (data.session) {
-      router.replace("/(tabs)/map");
-    } else {
-      Alert.alert(
-        "Check your email",
-        "We sent a confirmation link to your inbox. Confirm your email, then log in.",
-        [{ text: "OK", onPress: () => router.replace("/(auth)") }],
-      );
+      Alert.alert("Sign Up Failed", error.message);
+      setLoading(false);
+      return;
     }
+
+    // Create profile row
+    if (data.user) {
+      await supabase.from("profiles").insert({
+        id: data.user.id,
+        name,
+        location: "",
+      });
+    }
+
+    Alert.alert(
+      "Account Created!",
+      "Welcome to NotAPlane. You can now log in.",
+      [{ text: "OK", onPress: () => router.replace("/(auth)") }],
+    );
     setLoading(false);
   }
 
