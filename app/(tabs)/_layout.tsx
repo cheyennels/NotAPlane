@@ -15,7 +15,7 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="map"
+        name="map/index"
         options={{
           title: "Map",
           tabBarIcon: ({ focused }) => (
@@ -80,6 +80,7 @@ export default function TabLayout() {
       />
       {/* Hide sub-routes from tab bar */}
       <Tabs.Screen name="profile/change-password" options={{ href: null }} />
+      <Tabs.Screen name="map/sighting/[id]" options={{ href: null }} />
     </Tabs>
   );
 }

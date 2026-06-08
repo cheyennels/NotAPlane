@@ -6,7 +6,7 @@ import {
   initializeMapbox,
   isExpoGo,
 } from "@/lib/mapbox";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { getSightingPinColor, MapSighting } from "./types";
 
 const DEFAULT_CENTER: [number, number] = [-93.265, 44.9778];
@@ -14,11 +14,13 @@ const DEFAULT_CENTER: [number, number] = [-93.265, 44.9778];
 type MapboxMapProps = {
   style?: object;
   sightings?: MapSighting[];
+  onPinPress?: (id: string) => void;
 };
 
 export default function MapboxMapBase({
   style,
   sightings = [],
+  onPinPress,
 }: MapboxMapProps) {
   const token = getMapboxAccessToken();
 
@@ -73,12 +75,17 @@ export default function MapboxMapBase({
           key={sighting.id}
           coordinate={[sighting.longitude, sighting.latitude]}
         >
-          <View
-            style={[
-              styles.pin,
-              { backgroundColor: getSightingPinColor(sighting.status) },
-            ]}
-          />
+          <TouchableOpacity
+            onPress={() => onPinPress?.(sighting.id)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <View
+              style={[
+                styles.pin,
+                { backgroundColor: getSightingPinColor(sighting.status) },
+              ]}
+            />
+          </TouchableOpacity>
         </MarkerView>
       ))}
     </MapView>

@@ -13,6 +13,7 @@ const STYLE_ID = "notaplane-hide-mapbox-controls";
 type MapboxMapProps = {
   style?: object;
   sightings?: MapSighting[];
+  onPinPress?: (id: string) => void;
 };
 
 function hideMapboxControls(container: HTMLElement) {
@@ -33,11 +34,11 @@ function hideMapboxControls(container: HTMLElement) {
       }
     });
 
-  container.querySelectorAll(".mapboxgl-ctrl-logo, .mapboxgl-ctrl-attrib").forEach(
-    (node) => {
+  container
+    .querySelectorAll(".mapboxgl-ctrl-logo, .mapboxgl-ctrl-attrib")
+    .forEach((node) => {
       (node as HTMLElement).style.display = "none";
-    },
-  );
+    });
 }
 
 function ensureGlobalHideStyles() {
@@ -63,6 +64,7 @@ function ensureGlobalHideStyles() {
 export default function MapboxMapBase({
   style,
   sightings = [],
+  onPinPress,
 }: MapboxMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -116,12 +118,17 @@ export default function MapboxMapBase({
       element.style.borderRadius = "50%";
       element.style.backgroundColor = getSightingPinColor(sighting.status);
       element.style.border = `2px solid ${Colors.black}`;
+      element.style.cursor = "pointer";
+
+      if (onPinPress) {
+        element.addEventListener("click", () => onPinPress(sighting.id));
+      }
 
       return new mapboxgl.Marker({ element })
         .setLngLat([sighting.longitude, sighting.latitude])
         .addTo(map);
     });
-  }, [sightings]);
+  }, [sightings, onPinPress]);
 
   if (!token) {
     return (

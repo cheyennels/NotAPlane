@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { supabase } from "../../lib/supabase";
+import { supabase } from "../../../lib/supabase";
 
 // Only import mapbox-gl on web
 let mapboxgl: any = null;
@@ -59,7 +59,13 @@ export default function MapScreen() {
   return (
     <View style={styles.container}>
       {Platform.OS === "web" ? (
-        <MapboxMap style={styles.map} sightings={sightings} />
+        <MapboxMap
+          style={styles.map}
+          sightings={sightings}
+          onPinPress={(id: string) =>
+            router.push(`/(tabs)/map/sighting/${id}` as any)
+          }
+        />
       ) : (
         <View style={styles.mapFallback}>
           <Text style={styles.mapFallbackText}>
