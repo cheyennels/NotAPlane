@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { supabase } from "../../../lib/supabase";
+import { useFilters } from "../../../context/FilterContext";
 
 // Only import mapbox-gl on web
 let mapboxgl: any = null;
@@ -19,10 +19,36 @@ if (Platform.OS === "web") {
   mapboxgl = require("mapbox-gl");
 }
 
-type Sighting = MapSighting;
-
+type Sighting = MapSighting & {
+  created_at: string;
+};
 export default function MapScreen() {
   const [sightings, setSightings] = useState<Sighting[]>([]);
+  const [allSightings, setAllSightings] = useState<Sighting[]>([]);
+  const { filters } = useFilters();
+
+  // Apply filters whenever allSightings or filters change
+  useEffect(() => {
+    let filtered = allSightings;
+
+    // Filter by status
+    filtered = filtered.filter((s) => {
+      if (s.status === "explained" && !filters.showExplained) return false;
+      if (s.status === "partial" && !filters.showPartial) return false;
+      if (s.status === "unexplained" && !filters.showUnexplained) return false;
+      if (s.status === "pending" && !filters.showPending) return false;
+      return true;
+    });
+
+    // Filter by time range
+    if (filters.timeRange === "week") {
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      filtered = filtered.filter((s) => new Date(s.created_at) >= weekAgo);
+    }
+
+    setSightings(filtered);
+  }, [allSightings, filters]);
 
   // Hide Mapbox logo on web
   useEffect(() => {
@@ -45,17 +71,6 @@ export default function MapScreen() {
     }
   }, []);
 
-  // Fetch sightings from Supabase
-  useEffect(() => {
-    async function fetchSightings() {
-      const { data } = await supabase
-        .from("sightings")
-        .select("id, latitude, longitude, status");
-      if (data) setSightings(data);
-    }
-    fetchSightings();
-  }, []);
-
   return (
     <View style={styles.container}>
       {Platform.OS === "web" ? (
@@ -71,6 +86,17 @@ export default function MapScreen() {
           <Text style={styles.mapFallbackText}>
             Map requires a native build.{"\n"}Use web preview for now.
           </Text>
+        </View>
+      )}
+
+      {/* Active filter indicator */}
+      {(!filters.showExplained ||
+        !filters.showPartial ||
+        !filters.showUnexplained ||
+        !filters.showPending ||
+        filters.timeRange === "week") && (
+        <View style={styles.filterActive}>
+          <Text style={styles.filterActiveText}>● Filters Active</Text>
         </View>
       )}
 
@@ -98,7 +124,10 @@ export default function MapScreen() {
 
       {/* Bottom buttons */}
       <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.filterBtn}>
+        <TouchableOpacity
+          style={styles.filterBtn}
+          onPress={() => router.push("/(tabs)/map/filter" as any)}
+        >
           <Text style={styles.filterBtnText}>Filter</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -197,6 +226,21 @@ const styles = StyleSheet.create({
     color: Colors.muted,
     textAlign: "center",
     lineHeight: 18,
+    letterSpacing: 1,
+  },
+  filterActive: {
+    position: "absolute",
+    top: 40,
+    left: 16,
+    backgroundColor: "rgba(20,20,20,0.92)",
+    borderWidth: 2,
+    borderColor: Colors.green,
+    padding: 8,
+  },
+  filterActiveText: {
+    fontFamily: Fonts.mono,
+    fontSize: 9,
+    color: Colors.green,
     letterSpacing: 1,
   },
 });
