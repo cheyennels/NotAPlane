@@ -131,6 +131,7 @@ export function flightFromProperties(
     velocity_ms: Number(properties.velocity_ms),
     velocity_mph: Number(properties.velocity_mph),
     on_ground: properties.on_ground === true || properties.on_ground === "true",
+    last_contact: 0,
   };
 }
 

@@ -15,6 +15,7 @@ export type OpenSkyFlight = {
   velocity_ms: number;
   velocity_mph: number;
   on_ground: boolean;
+  last_contact: number;
 };
 
 export type FlightPath = {
@@ -99,6 +100,7 @@ export async function getFlightsInArea(
         velocity_ms: s[9] || 0,
         velocity_mph: Math.round((s[9] || 0) * 2.23694),
         on_ground: s[8] || false,
+        last_contact: s[4] || 0,
       }));
 
     return { flights, status: response.status };
@@ -110,14 +112,16 @@ export async function getFlightsInArea(
 
 export async function getFlightPath(
   icao24: string,
-  time: number,
+  trackTime = 0,
 ): Promise<{ coordinates: [number, number][]; status: number }> {
   try {
     const id = icao24.toLowerCase();
-    const url = `https://opensky-network.org/api/tracks/all?icao24=${id}&time=${time}`;
+    const url = `https://opensky-network.org/api/tracks/all?icao24=${id}&time=${trackTime}`;
     const response = await fetchOpenSky(url);
 
     if (!response.ok) {
+      const detail = await response.clone().text();
+      console.warn("OpenSky track error:", id, response.status, detail);
       return { coordinates: [], status: response.status };
     }
 
@@ -180,14 +184,13 @@ async function fetchOpenSkyViaExpoApi(url: string): Promise<Response | null> {
   const lamax = parsed.searchParams.get("lamax");
   const lomax = parsed.searchParams.get("lomax");
   const icao24 = parsed.searchParams.get("icao24");
-  const time = parsed.searchParams.get("time");
 
   let apiUrl: string | null = null;
 
   if (lamin && lomin && lamax && lomax) {
     apiUrl = `/api/opensky?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`;
-  } else if (icao24 && time) {
-    apiUrl = `/api/opensky?icao24=${icao24}&time=${time}`;
+  } else if (icao24 && parsed.searchParams.has("time")) {
+    apiUrl = `/api/opensky?icao24=${icao24}&time=${parsed.searchParams.get("time")}`;
   }
 
   if (!apiUrl) return null;
@@ -214,14 +217,13 @@ async function fetchOpenSkyViaProxy(url: string): Promise<Response | null> {
   const lamax = parsed.searchParams.get("lamax");
   const lomax = parsed.searchParams.get("lomax");
   const icao24 = parsed.searchParams.get("icao24");
-  const time = parsed.searchParams.get("time");
 
   let proxyUrl: string | null = null;
 
   if (lamin && lomin && lamax && lomax) {
     proxyUrl = `${supabaseUrl}/functions/v1/opensky-proxy?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`;
-  } else if (icao24 && time) {
-    proxyUrl = `${supabaseUrl}/functions/v1/opensky-proxy?icao24=${icao24}&time=${time}`;
+  } else if (icao24 && parsed.searchParams.has("time")) {
+    proxyUrl = `${supabaseUrl}/functions/v1/opensky-proxy?icao24=${icao24}&time=${parsed.searchParams.get("time")}`;
   }
 
   if (!proxyUrl) return null;
@@ -253,12 +255,18 @@ async function fetchOpenSky(url: string): Promise<Response> {
   const apiResponse = await fetchOpenSkyViaExpoApi(url);
   if (apiResponse?.ok) return apiResponse;
 
+  // A 429 from the local API route means OpenSky is rate-limiting; don't
+  // immediately hit the Supabase proxy for the same track request.
+  if (apiResponse?.status === 429) {
+    return apiResponse;
+  }
+
   const proxyResponse = await fetchOpenSkyViaProxy(url);
   if (proxyResponse?.ok) return proxyResponse;
 
   const failed = apiResponse ?? proxyResponse;
   if (failed && !failed.ok) {
-    const detail = await failed.text();
+    const detail = await failed.clone().text();
     console.warn("OpenSky web fetch error:", failed.status, detail);
     return failed;
   }

@@ -1,8 +1,10 @@
+import SkyCompass from "@/components/map/SkyCompass";
 import MapboxMap from "@/components/map/MapboxMap";
 import { MapSighting } from "@/components/map/types";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
 import { useFilters } from "@/context/FilterContext";
+import { useNearbyCelestial, CELESTIAL_REFERENCE_ZOOM } from "@/hooks/useCelestialData";
 import { useNearbyFlights } from "@/hooks/useFlightData";
 import { supabase } from "@/lib/supabase";
 import { router } from "expo-router";
@@ -16,6 +18,7 @@ type Sighting = MapSighting & {
 export default function MapScreen() {
   const [sightings, setSightings] = useState<Sighting[]>([]);
   const [allSightings, setAllSightings] = useState<Sighting[]>([]);
+  const [mapZoom, setMapZoom] = useState(CELESTIAL_REFERENCE_ZOOM);
   const { filters } = useFilters();
   // Minneapolis center coordinates
   const MAP_CENTER = { latitude: 44.9778, longitude: -93.265 };
@@ -24,7 +27,13 @@ export default function MapScreen() {
     MAP_CENTER.latitude,
     MAP_CENTER.longitude,
     100,
-    true,
+    filters.showFlightPaths,
+  );
+
+  const { bodies: celestialBodies } = useNearbyCelestial(
+    MAP_CENTER.latitude,
+    MAP_CENTER.longitude,
+    filters.showCelestial,
   );
 
   // Fetch all sightings from Supabase
@@ -61,6 +70,21 @@ export default function MapScreen() {
     setSightings(filtered);
   }, [allSightings, filters]);
 
+  const legendEntries = [
+    filters.showExplained && { label: "Explained", color: Colors.blue },
+    filters.showPartial && { label: "Partial Match", color: Colors.yellow },
+    filters.showUnexplained && { label: "Unexplained", color: Colors.red },
+    filters.showPending && { label: "Pending", color: Colors.green },
+    filters.showFlightPaths && {
+      label: "Flights",
+      color: Colors.green,
+      icon: "✈",
+    },
+    filters.showCelestial && { label: "Planets", color: "#FFA500" },
+    filters.showCelestial && { label: "Stars", color: "#FFFFFF" },
+    filters.showCelestial && { label: "ISS", color: "#FF69B4" },
+  ].filter(Boolean) as { label: string; color: string; icon?: string }[];
+
   return (
     <View style={styles.container}>
       <MapboxMap
@@ -68,10 +92,21 @@ export default function MapScreen() {
         sightings={sightings}
         flights={filters.showFlightPaths ? flights : []}
         flightTrails={filters.showFlightPaths ? flightTrails : []}
+        celestialBodies={filters.showCelestial ? celestialBodies : []}
+        centerLatitude={MAP_CENTER.latitude}
+        centerLongitude={MAP_CENTER.longitude}
+        onZoomChange={setMapZoom}
         onPinPress={(id: string) =>
           router.push(`/(tabs)/map/sighting/${id}` as any)
         }
       />
+      {filters.showCelestial &&
+        celestialBodies.length > 0 &&
+        mapZoom >= CELESTIAL_REFERENCE_ZOOM && (
+        <View style={styles.skyCompass}>
+          <SkyCompass bodies={celestialBodies.filter((b) => b.altitude > 5)} />
+        </View>
+      )}
 
       {filters.showFlightPaths && error ? (
         <View style={styles.flightError}>
@@ -94,33 +129,28 @@ export default function MapScreen() {
         !filters.showUnexplained ||
         !filters.showPending ||
         filters.timeRange === "week" ||
-        filters.showFlightPaths) && (
+        filters.showFlightPaths ||
+        filters.showCelestial) && (
         <View style={styles.filterActive}>
           <Text style={styles.filterActiveText}>● Filters Active</Text>
         </View>
       )}
 
-      {/* Legend */}
-      <View style={styles.legend}>
-        <View style={styles.legendRow}>
-          <View style={[styles.legendDot, { backgroundColor: Colors.blue }]} />
-          <Text style={styles.legendText}>Explained</Text>
+      {/* Legend — only shows entries for visible layers */}
+      {legendEntries.length > 0 && (
+        <View style={styles.legend}>
+          {legendEntries.map(({ label, color, icon }) => (
+            <View key={label} style={styles.legendRow}>
+              {icon ? (
+                <Text style={[styles.legendIcon, { color }]}>{icon}</Text>
+              ) : (
+                <View style={[styles.legendDot, { backgroundColor: color }]} />
+              )}
+              <Text style={styles.legendText}>{label}</Text>
+            </View>
+          ))}
         </View>
-        <View style={styles.legendRow}>
-          <View
-            style={[styles.legendDot, { backgroundColor: Colors.yellow }]}
-          />
-          <Text style={styles.legendText}>Partial Match</Text>
-        </View>
-        <View style={styles.legendRow}>
-          <View style={[styles.legendDot, { backgroundColor: Colors.red }]} />
-          <Text style={styles.legendText}>Unexplained</Text>
-        </View>
-        <View style={styles.legendRow}>
-          <View style={[styles.legendDot, { backgroundColor: Colors.green }]} />
-          <Text style={styles.legendText}>Pending</Text>
-        </View>
-      </View>
+      )}
 
       {/* Bottom buttons */}
       <View style={styles.bottomBar}>
@@ -168,6 +198,12 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
+  },
+  legendIcon: {
+    width: 10,
+    fontSize: 10,
+    lineHeight: 10,
+    textAlign: "center",
   },
   legendText: {
     fontFamily: Fonts.mono,
@@ -247,7 +283,8 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 80,
     left: 16,
-    right: 16,
+    maxWidth: "60%",
+    alignSelf: "flex-start",
     backgroundColor: "rgba(20,20,20,0.92)",
     borderWidth: 2,
     borderColor: Colors.yellow,
@@ -259,5 +296,10 @@ const styles = StyleSheet.create({
     color: Colors.yellow,
     letterSpacing: 0.5,
     lineHeight: 14,
+  },
+  skyCompass: {
+    position: "absolute",
+    bottom: 90,
+    left: 16,
   },
 });

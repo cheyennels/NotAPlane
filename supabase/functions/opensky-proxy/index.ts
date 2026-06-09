@@ -35,12 +35,11 @@ Deno.serve(async (req) => {
     const lamax = url.searchParams.get("lamax");
     const lomax = url.searchParams.get("lomax");
     const icao24 = url.searchParams.get("icao24");
-    const time = url.searchParams.get("time");
 
     let openskyUrl: string | null = null;
 
-    if (icao24 && time) {
-      openskyUrl = `https://opensky-network.org/api/tracks/all?icao24=${icao24}&time=${time}`;
+    if (icao24 && url.searchParams.has("time")) {
+      openskyUrl = `https://opensky-network.org/api/tracks/all?icao24=${icao24}&time=${url.searchParams.get("time")}`;
     } else if (lamin && lomin && lamax && lomax) {
       openskyUrl =
         `https://opensky-network.org/api/states/all?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`;

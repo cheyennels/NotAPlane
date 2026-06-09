@@ -1,61 +1,125 @@
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
+const STATUS_CONFIG: Record<string, { color: string; label: string }> = {
+  explained: { color: Colors.blue, label: "Explained" },
+  partial: { color: Colors.green, label: "Partial Match" },
+  unexplained: { color: Colors.red ?? "#ff4444", label: "Unexplained" },
+  pending: { color: Colors.muted, label: "Pending" },
+};
+
 export default function ResultScreen() {
+  const { status, matchedFlight, matchedCelestial } = useLocalSearchParams<{
+    status: string;
+    matchedFlight: string;
+    matchedCelestial: string;
+  }>();
+
+  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.pending;
+
+  const flightLabel =
+    matchedFlight && matchedFlight !== "null" ? matchedFlight : null;
+  const celestialLabel =
+    matchedCelestial && matchedCelestial !== "null" ? matchedCelestial : null;
+
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.inner}>
-        {/* Header */}
         <Text style={styles.title}>Analysis Complete</Text>
-        <Text style={styles.subtitle}>
-          Thank you for your report. Based on the following data, we believe
-          this report has been explained as an aircraft.
-        </Text>
 
-        {/* Aircraft match card */}
+        {/* Status badge */}
+        <View style={[styles.statusBadge, { borderColor: cfg.color }]}>
+          <View style={[styles.statusDot, { backgroundColor: cfg.color }]} />
+          <Text style={[styles.statusLabel, { color: cfg.color }]}>
+            {cfg.label.toUpperCase()}
+          </Text>
+        </View>
+
+        {/* Flight card */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <View
-              style={[styles.statusDot, { backgroundColor: Colors.blue }]}
+              style={[
+                styles.dot,
+                { backgroundColor: flightLabel ? Colors.blue : Colors.muted },
+              ]}
             />
-            <Text style={[styles.cardHeaderText, { color: Colors.blue }]}>
+            <Text
+              style={[
+                styles.cardHeaderText,
+                { color: flightLabel ? Colors.blue : Colors.muted },
+              ]}
+            >
               Aircraft
             </Text>
           </View>
-          <Text style={styles.matchTitle}>Delta Airlines{"\n"}WN2847</Text>
-          <Text style={styles.matchBody}>
-            A Boeing 737-800 was passing within 2.1 miles of your location at
-            10:23 PM — approximately the time of your report. Altitude: 8,400
-            ft. Heading Northwest.
-          </Text>
+          {flightLabel ? (
+            <>
+              <Text style={styles.matchTitle}>{flightLabel}</Text>
+              <Text style={styles.matchBody}>
+                A flight matching callsign {flightLabel} was detected within
+                range of your location at the time of the sighting.
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.matchTitle}>No Aircraft Matched</Text>
+              <Text style={styles.matchBody}>
+                No airborne flights were detected within range of your location
+                at the time of the sighting.
+              </Text>
+            </>
+          )}
         </View>
 
-        {/* No celestial match card */}
+        {/* Celestial card */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <View
-              style={[styles.statusDot, { backgroundColor: Colors.muted }]}
+              style={[
+                styles.dot,
+                {
+                  backgroundColor: celestialLabel ? Colors.blue : Colors.muted,
+                },
+              ]}
             />
-            <Text style={styles.cardHeaderText}>No Match</Text>
+            <Text
+              style={[
+                styles.cardHeaderText,
+                { color: celestialLabel ? Colors.blue : Colors.muted },
+              ]}
+            >
+              Celestial
+            </Text>
           </View>
-          <Text style={styles.matchTitle}>No Celestial Body{"\n"}Matched</Text>
-          <Text style={styles.matchBody}>
-            No known stars, planets, or satellite passes were recorded at the
-            reported position and time. This aspect of the sighting remains
-            unresolved.
-          </Text>
+          {celestialLabel ? (
+            <>
+              <Text style={styles.matchTitle}>{celestialLabel}</Text>
+              <Text style={styles.matchBody}>
+                {celestialLabel} was visible above the horizon at your location
+                and time, and may account for the sighting.
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.matchTitle}>No Celestial Body Matched</Text>
+              <Text style={styles.matchBody}>
+                No known planets or the Moon were prominently visible at the
+                reported position and time.
+              </Text>
+            </>
+          )}
         </View>
       </ScrollView>
 
-      {/* Return home button */}
       <View style={styles.bottomBar}>
         <TouchableOpacity
           style={styles.returnBtn}
@@ -73,9 +137,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.black,
   },
-  card: {
-    marginVertical: 16,
-  },
   inner: {
     paddingHorizontal: 24,
     paddingTop: 80,
@@ -89,12 +150,28 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: 12,
   },
-  subtitle: {
-    fontFamily: Fonts.mono,
-    fontSize: 11,
-    color: Colors.muted,
-    lineHeight: 18,
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    alignSelf: "flex-start",
     marginBottom: 8,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusLabel: {
+    fontFamily: Fonts.display,
+    fontSize: 11,
+    letterSpacing: 2,
+  },
+  card: {
+    marginVertical: 8,
   },
   cardHeader: {
     flexDirection: "row",
@@ -103,7 +180,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     paddingBottom: 6,
   },
-  statusDot: {
+  dot: {
     width: 10,
     height: 10,
     borderRadius: 5,
@@ -111,7 +188,6 @@ const styles = StyleSheet.create({
   cardHeaderText: {
     fontFamily: Fonts.display,
     fontSize: 12,
-    color: Colors.muted,
     letterSpacing: 2,
     textTransform: "uppercase",
   },

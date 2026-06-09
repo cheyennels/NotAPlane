@@ -14,73 +14,71 @@ import {
 // OpenSky typically sees one request per ~30s, not every poll.
 const FLIGHT_REFRESH_INTERVAL_MS = 10_000;
 const STATES_BACKOFF_MS = 60_000;
-const TRACK_FETCH_INTERVAL_MS = 30_000;
-const TRACK_BACKOFF_MS = 120_000;
-const TRACK_RETRY_MS = 300_000;
-const MAX_FALLBACK_TRAIL_POINTS = 36;
-const MIN_TRAIL_DISTANCE_DEG = 0.00003;
+const TRACK_FETCH_INTERVAL_MS = 45_000;
+const TRACK_REFRESH_MS = 300_000;
+const TRACK_BACKOFF_MS = 300_000;
+const TRACK_RETRY_MS = 120_000;
+const TRACK_SESSION_TTL_MS = 1_800_000;
+const TRACK_SESSION_PREFIX = "notaplane-track:";
 
-function distanceBetween(
-  a: [number, number],
-  b: [number, number],
-): number {
-  const dLng = a[0] - b[0];
-  const dLat = a[1] - b[1];
-  return Math.sqrt(dLng * dLng + dLat * dLat);
+function normalizeIcao(icao24: string): string {
+  return icao24.toLowerCase();
 }
 
-function updateFallbackTrails(
-  trails: Map<string, [number, number][]>,
-  flights: OpenSkyFlight[],
-): Map<string, [number, number][]> {
-  const next = new Map(trails);
-  const activeIds = new Set<string>();
+function readSessionTrack(
+  icao24: string,
+): [number, number][] | null {
+  if (typeof sessionStorage === "undefined") return null;
 
-  for (const flight of flights) {
-    activeIds.add(flight.icao24);
-    const point: [number, number] = [flight.longitude, flight.latitude];
-    const history = next.get(flight.icao24) ?? [];
-    const last = history[history.length - 1];
-    const moved =
-      !last || distanceBetween(last, point) >= MIN_TRAIL_DISTANCE_DEG;
-    const updated = moved
-      ? [...history, point].slice(-MAX_FALLBACK_TRAIL_POINTS)
-      : history;
-    next.set(flight.icao24, updated);
+  try {
+    const raw = sessionStorage.getItem(`${TRACK_SESSION_PREFIX}${icao24}`);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as {
+      coordinates: [number, number][];
+      fetchedAt: number;
+    };
+
+    if (Date.now() - parsed.fetchedAt > TRACK_SESSION_TTL_MS) {
+      sessionStorage.removeItem(`${TRACK_SESSION_PREFIX}${icao24}`);
+      return null;
+    }
+
+    return parsed.coordinates;
+  } catch {
+    return null;
   }
+}
 
-  for (const icao24 of next.keys()) {
-    if (!activeIds.has(icao24)) next.delete(icao24);
+function writeSessionTrack(icao24: string, coordinates: [number, number][]) {
+  if (typeof sessionStorage === "undefined") return;
+
+  try {
+    sessionStorage.setItem(
+      `${TRACK_SESSION_PREFIX}${icao24}`,
+      JSON.stringify({ coordinates, fetchedAt: Date.now() }),
+    );
+  } catch {
+    // Ignore quota errors.
   }
-
-  return next;
 }
 
 function buildFlightTrails(
   flights: OpenSkyFlight[],
   historicalPaths: Map<string, [number, number][]>,
-  fallbackTrails: Map<string, [number, number][]>,
 ): FlightTrail[] {
   return flights
     .map((flight) => {
-      const historical = historicalPaths.get(flight.icao24);
-      const fallback = fallbackTrails.get(flight.icao24) ?? [];
+      const id = normalizeIcao(flight.icao24);
+      const historical = historicalPaths.get(id);
+      if (!historical || historical.length < 2) return null;
 
-      const historicalPath = historical
-        ? appendFlightPosition(historical, flight)
-        : [];
-      const fallbackPath = fallback.length
-        ? appendFlightPosition(fallback, flight)
-        : [[flight.longitude, flight.latitude] as [number, number]];
-
-      const coordinates =
-        historicalPath.length >= fallbackPath.length
-          ? historicalPath
-          : fallbackPath;
-
-      return { icao24: flight.icao24, coordinates };
+      return {
+        icao24: flight.icao24,
+        coordinates: appendFlightPosition(historical, flight),
+      };
     })
-    .filter((trail) => trail.coordinates.length >= 2);
+    .filter((trail): trail is FlightTrail => trail !== null);
 }
 
 function pickNextTrackTarget(
@@ -95,15 +93,32 @@ function pickNextTrackTarget(
   for (let offset = 0; offset < flights.length; offset += 1) {
     const index = (queueIndex + offset) % flights.length;
     const flight = flights[index];
-    if (historicalPaths.has(flight.icao24)) continue;
+    const id = normalizeIcao(flight.icao24);
+    const lastAttempt = trackAttemptedAt.get(id) ?? 0;
+    const hasHistorical = historicalPaths.has(id);
 
-    const lastAttempt = trackAttemptedAt.get(flight.icao24) ?? 0;
-    if (now - lastAttempt < TRACK_RETRY_MS) continue;
+    if (hasHistorical && now - lastAttempt < TRACK_REFRESH_MS) continue;
+    if (!hasHistorical && now - lastAttempt < TRACK_RETRY_MS) continue;
 
     return { flight, nextIndex: index + 1 };
   }
 
   return null;
+}
+
+function hydrateHistoricalPaths(
+  flights: OpenSkyFlight[],
+  historicalPaths: Map<string, [number, number][]>,
+) {
+  for (const flight of flights) {
+    const id = normalizeIcao(flight.icao24);
+    if (historicalPaths.has(id)) continue;
+
+    const cached = readSessionTrack(id);
+    if (cached && cached.length >= 2) {
+      historicalPaths.set(id, cached);
+    }
+  }
 }
 
 export function useNearbyFlights(
@@ -116,7 +131,6 @@ export function useNearbyFlights(
   const [flightTrails, setFlightTrails] = useState<FlightTrail[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const fallbackTrailsRef = useRef<Map<string, [number, number][]>>(new Map());
   const historicalPathsRef = useRef<Map<string, [number, number][]>>(new Map());
   const trackAttemptedAtRef = useRef<Map<string, number>>(new Map());
   const statesBackoffUntilRef = useRef(0);
@@ -128,7 +142,6 @@ export function useNearbyFlights(
 
   useEffect(() => {
     if (!enabled) {
-      fallbackTrailsRef.current = new Map();
       historicalPathsRef.current = new Map();
       trackAttemptedAtRef.current = new Map();
       statesBackoffUntilRef.current = 0;
@@ -151,18 +164,17 @@ export function useNearbyFlights(
 
     function syncTrails(nextFlights: OpenSkyFlight[]) {
       flightsRef.current = nextFlights;
-      setFlightTrails(
-        buildFlightTrails(
-          nextFlights,
-          historicalPathsRef.current,
-          fallbackTrailsRef.current,
-        ),
-      );
+      setFlightTrails(buildFlightTrails(nextFlights, historicalPathsRef.current));
+    }
+
+    function storeHistoricalPath(id: string, coordinates: [number, number][]) {
+      historicalPathsRef.current.set(id, coordinates);
+      writeSessionTrack(id, coordinates);
+      syncTrails(flightsRef.current);
     }
 
     async function fetchNextHistoricalPath() {
       if (trackFetchInFlightRef.current) return;
-      if (Date.now() < statesBackoffUntilRef.current) return;
 
       const now = Date.now();
       if (now < trackBackoffUntilRef.current) return;
@@ -187,14 +199,14 @@ export function useNearbyFlights(
       trackFetchInFlightRef.current = true;
       lastTrackFetchAtRef.current = now;
 
+      const id = normalizeIcao(target.flight.icao24);
+
       try {
-        const result = await getFlightPath(
-          target.flight.icao24,
-          Math.floor(now / 1000),
-        );
+        // time=0 returns the full live track from OpenSky's /tracks endpoint.
+        const result = await getFlightPath(id, 0);
         if (isCancelled()) return;
 
-        trackAttemptedAtRef.current.set(target.flight.icao24, now);
+        trackAttemptedAtRef.current.set(id, now);
 
         if (result.status === 429) {
           trackBackoffUntilRef.current = now + TRACK_BACKOFF_MS;
@@ -202,18 +214,7 @@ export function useNearbyFlights(
         }
 
         if (result.coordinates.length >= 2) {
-          historicalPathsRef.current.set(
-            target.flight.icao24,
-            result.coordinates,
-          );
-          const existing =
-            fallbackTrailsRef.current.get(target.flight.icao24) ?? [];
-          if (result.coordinates.length >= existing.length) {
-            fallbackTrailsRef.current.set(target.flight.icao24, [
-              ...result.coordinates,
-            ]);
-          }
-          syncTrails(flightsRef.current);
+          storeHistoricalPath(id, result.coordinates);
         }
       } finally {
         trackFetchInFlightRef.current = false;
@@ -237,7 +238,7 @@ export function useNearbyFlights(
 
         if (status === 429) {
           statesBackoffUntilRef.current = now + STATES_BACKOFF_MS;
-          setError("Flight data rate limited — showing last known positions");
+          setError("Flights are limited currently");
           return;
         }
 
@@ -247,10 +248,7 @@ export function useNearbyFlights(
         }
 
         setError(null);
-        fallbackTrailsRef.current = updateFallbackTrails(
-          fallbackTrailsRef.current,
-          data,
-        );
+        hydrateHistoricalPaths(data, historicalPathsRef.current);
         setFlights(data);
         syncTrails(data);
         void fetchNextHistoricalPath();
@@ -262,11 +260,19 @@ export function useNearbyFlights(
     }
 
     fetchPositions();
-    const interval = setInterval(fetchPositions, FLIGHT_REFRESH_INTERVAL_MS);
+    const positionsInterval = setInterval(
+      fetchPositions,
+      FLIGHT_REFRESH_INTERVAL_MS,
+    );
+    const tracksInterval = setInterval(
+      fetchNextHistoricalPath,
+      TRACK_FETCH_INTERVAL_MS,
+    );
 
     return () => {
       cancelled = true;
-      clearInterval(interval);
+      clearInterval(positionsInterval);
+      clearInterval(tracksInterval);
     };
   }, [latitude, longitude, radiusKm, enabled]);
 

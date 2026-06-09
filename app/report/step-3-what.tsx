@@ -259,10 +259,7 @@ const styles = StyleSheet.create({
   },
   colorSwatchActive: {
     borderColor: Colors.white,
-    shadowColor: Colors.white,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 4,
+    boxShadow: `0 0 4px ${Colors.white}`,
   },
   photoRow: {
     flexDirection: "row",

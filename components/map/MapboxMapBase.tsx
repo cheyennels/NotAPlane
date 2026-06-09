@@ -1,5 +1,6 @@
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
+import { CelestialBody, celestialBodyColor, celestialBodyEarthCoordinate, CELESTIAL_REFERENCE_ZOOM } from "@/hooks/useCelestialData";
 import {
   canRenderMapboxMap,
   getMapboxAccessToken,
@@ -41,7 +42,11 @@ type MapboxMapProps = {
   sightings?: MapSighting[];
   flights?: OpenSkyFlight[];
   flightTrails?: FlightTrail[];
+  celestialBodies?: CelestialBody[];
+  centerLatitude?: number;
+  centerLongitude?: number;
   onPinPress?: (id: string) => void;
+  onZoomChange?: (zoom: number) => void;
 };
 
 export default function MapboxMapBase({
@@ -49,11 +54,16 @@ export default function MapboxMapBase({
   sightings = [],
   flights = [],
   flightTrails = [],
+  celestialBodies = [],
+  centerLatitude = DEFAULT_CENTER[1],
+  centerLongitude = DEFAULT_CENTER[0],
   onPinPress,
+  onZoomChange,
 }: MapboxMapProps) {
   const [selectedFlight, setSelectedFlight] = useState<OpenSkyFlight | null>(
     null,
   );
+  const [mapZoom, setMapZoom] = useState(11);
   const flightGeoJson = useMemo(
     () => flightsToGeoJson(flights, flightTrails),
     [flights, flightTrails],
@@ -112,11 +122,27 @@ export default function MapboxMapBase({
       compassEnabled={false}
       scaleBarEnabled={false}
       onPress={() => setSelectedFlight(null)}
+      onCameraChanged={(event: {
+        properties?: { zoom?: number; zoomLevel?: number };
+        zoom?: number;
+      }) => {
+        const zoom =
+          event.properties?.zoom ??
+          event.properties?.zoomLevel ??
+          event.zoom;
+        if (typeof zoom === "number") {
+          setMapZoom((prev) =>
+            Math.abs(prev - zoom) < 0.001 ? prev : zoom,
+          );
+          onZoomChange?.(zoom);
+        }
+      }}
     >
       <Camera
-        zoomLevel={11}
-        centerCoordinate={DEFAULT_CENTER}
-        animationMode="none"
+        defaultSettings={{
+          zoomLevel: 11,
+          centerCoordinate: [centerLongitude, centerLatitude],
+        }}
       />
 
       {sightings.map((sighting) => (
@@ -136,6 +162,32 @@ export default function MapboxMapBase({
               ]}
             />
           </TouchableOpacity>
+        </MarkerView>
+      ))}
+
+      {mapZoom < CELESTIAL_REFERENCE_ZOOM &&
+        celestialBodies.map((body) => (
+        <MarkerView
+          key={`celestial-${body.id}`}
+          coordinate={celestialBodyEarthCoordinate(body)}
+          anchor={{ x: 0.5, y: 0.5 }}
+        >
+          <View style={styles.celestialMarker}>
+            <View
+              style={[
+                styles.celestialDot,
+                { backgroundColor: celestialBodyColor(body.kind) },
+              ]}
+            />
+            <Text
+              style={[
+                styles.celestialLabel,
+                { color: celestialBodyColor(body.kind) },
+              ]}
+            >
+              {body.name.toUpperCase()}
+            </Text>
+          </View>
         </MarkerView>
       ))}
 
@@ -243,5 +295,23 @@ const styles = StyleSheet.create({
     color: Colors.muted,
     lineHeight: 18,
     textAlign: "center",
+  },
+  celestialMarker: {
+    alignItems: "center",
+    gap: 4,
+  },
+  celestialDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#FFA500",
+    borderWidth: 1,
+    borderColor: Colors.black,
+  },
+  celestialLabel: {
+    fontFamily: Fonts.mono,
+    fontSize: 8,
+    color: "#FFA500",
+    letterSpacing: 1,
   },
 });

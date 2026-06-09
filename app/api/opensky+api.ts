@@ -3,7 +3,7 @@ const OPENSKY_TIMEOUT_MS = 8_000;
 // repeated map refreshes don't each hit OpenSky.
 const STATES_CACHE_TTL_MS = 25_000;
 const STATES_STALE_MAX_MS = 300_000;
-const TRACK_CACHE_TTL_MS = 300_000;
+const TRACK_CACHE_TTL_MS = 1_800_000;
 
 type CacheEntry = { body: unknown; fetchedAt: number };
 
@@ -156,10 +156,9 @@ export async function GET(request: Request) {
   const lamax = url.searchParams.get("lamax");
   const lomax = url.searchParams.get("lomax");
   const icao24 = url.searchParams.get("icao24");
-  const time = url.searchParams.get("time");
 
-  if (icao24 && time) {
-    return fetchTrackCached(icao24, time);
+  if (icao24 && url.searchParams.has("time")) {
+    return fetchTrackCached(icao24, url.searchParams.get("time")!);
   }
 
   if (lamin && lomin && lamax && lomax) {

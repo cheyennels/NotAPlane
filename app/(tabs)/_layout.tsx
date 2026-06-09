@@ -28,6 +28,7 @@ export default function TabLayout() {
                     : require("../../assets/images/map.png")
                 }
                 style={styles.icon}
+                resizeMode="contain"
               />
             ),
           }}
@@ -44,6 +45,7 @@ export default function TabLayout() {
                     : require("../../assets/images/reports.png")
                 }
                 style={styles.icon}
+                resizeMode="contain"
               />
             ),
           }}
@@ -60,6 +62,7 @@ export default function TabLayout() {
                     : require("../../assets/images/notification.png")
                 }
                 style={styles.icon}
+                resizeMode="contain"
               />
             ),
           }}
@@ -76,6 +79,7 @@ export default function TabLayout() {
                     : require("../../assets/images/profile.png")
                 }
                 style={styles.icon}
+                resizeMode="contain"
               />
             ),
           }}
@@ -105,6 +109,5 @@ const styles = StyleSheet.create({
   icon: {
     width: 24,
     height: 24,
-    resizeMode: "contain",
   },
 });

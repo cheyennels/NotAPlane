@@ -1,10 +1,11 @@
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
+import { CelestialBody, celestialBodyColor, celestialBodyEarthCoordinate, CELESTIAL_REFERENCE_ZOOM } from "@/hooks/useCelestialData";
 import { getMapboxAccessToken } from "@/lib/mapbox";
 import { OpenSkyFlight } from "@/lib/opensky";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, ViewStyle } from "react-native";
 import {
   FlightFeatureProperties,
@@ -35,7 +36,11 @@ type MapboxMapProps = {
   sightings?: MapSighting[];
   flights?: OpenSkyFlight[];
   flightTrails?: FlightTrail[];
+  celestialBodies?: CelestialBody[];
+  centerLatitude?: number;
+  centerLongitude?: number;
   onPinPress?: (id: string) => void;
+  onZoomChange?: (zoom: number) => void;
 };
 
 function hideMapboxControls(container: HTMLElement) {
@@ -193,20 +198,102 @@ function hideFlightTooltip(tooltipEl: HTMLDivElement) {
   tooltipEl.classList.remove("is-visible");
 }
 
+function createCelestialMarkerElement(body: CelestialBody): HTMLDivElement {
+  const wrapper = document.createElement("div");
+  wrapper.style.display = "flex";
+  wrapper.style.flexDirection = "column";
+  wrapper.style.alignItems = "center";
+  wrapper.style.gap = "4px";
+  wrapper.style.pointerEvents = "none";
+
+  const color = celestialBodyColor(body.kind);
+
+  const dot = document.createElement("div");
+  dot.style.width = "10px";
+  dot.style.height = "10px";
+  dot.style.borderRadius = "50%";
+  dot.style.backgroundColor = color;
+  dot.style.border = `1px solid ${Colors.black}`;
+
+  const label = document.createElement("div");
+  label.textContent = body.name.toUpperCase();
+  label.style.fontFamily = '"Space Mono", ui-monospace, monospace';
+  label.style.fontSize = "8px";
+  label.style.color = color;
+  label.style.letterSpacing = "1px";
+
+  wrapper.appendChild(dot);
+  wrapper.appendChild(label);
+  return wrapper;
+}
+
 export default function MapboxMapBase({
   style,
   sightings = [],
   onPinPress,
   flights = [],
   flightTrails = [],
+  celestialBodies = [],
+  centerLatitude = DEFAULT_CENTER[1],
+  centerLongitude = DEFAULT_CENTER[0],
+  onZoomChange,
 }: MapboxMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const celestialMarkersRef = useRef<mapboxgl.Marker[]>([]);
+  const celestialBodiesRef = useRef(celestialBodies);
+  const celestialBodyIdsRef = useRef("");
+  const onZoomChangeRef = useRef(onZoomChange);
+  const mapReadyRef = useRef(false);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
   const activeFlightRef = useRef<[number, number] | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const token = getMapboxAccessToken();
+
+  celestialBodiesRef.current = celestialBodies;
+  onZoomChangeRef.current = onZoomChange;
+
+  const syncCelestialMarkers = useCallback(() => {
+    const map = mapRef.current;
+    if (!map || !mapReadyRef.current) return;
+
+    const zoom = map.getZoom();
+    onZoomChangeRef.current?.(zoom);
+
+    const bodies = celestialBodiesRef.current;
+    const bodyIds = bodies.map((body) => body.id).join(",");
+    const shouldShow =
+      zoom < CELESTIAL_REFERENCE_ZOOM && bodies.length > 0;
+
+    if (!shouldShow) {
+      if (celestialMarkersRef.current.length > 0) {
+        celestialMarkersRef.current.forEach((marker) => marker.remove());
+        celestialMarkersRef.current = [];
+        celestialBodyIdsRef.current = "";
+      }
+      return;
+    }
+
+    if (
+      celestialMarkersRef.current.length === bodies.length &&
+      celestialBodyIdsRef.current === bodyIds
+    ) {
+      return;
+    }
+
+    celestialMarkersRef.current.forEach((marker) => marker.remove());
+    celestialMarkersRef.current = bodies.map((body) => {
+      const [lng, lat] = celestialBodyEarthCoordinate(body);
+      return new mapboxgl.Marker({
+        element: createCelestialMarkerElement(body),
+        anchor: "center",
+      })
+        .setLngLat([lng, lat])
+        .addTo(map);
+    });
+    celestialBodyIdsRef.current = bodyIds;
+  }, []);
 
   useEffect(() => {
     if (!token) return;
@@ -221,7 +308,7 @@ export default function MapboxMapBase({
     const map = new mapboxgl.Map({
       container,
       style: "mapbox://styles/mapbox/dark-v11",
-      center: DEFAULT_CENTER,
+      center: [centerLongitude, centerLatitude],
       zoom: 11,
       attributionControl: false,
     });
@@ -276,7 +363,11 @@ export default function MapboxMapBase({
       }
       map.on("move", repositionTooltip);
       map.on("zoom", repositionTooltip);
+      map.on("zoom", syncCelestialMarkers);
+      map.on("zoomend", syncCelestialMarkers);
+      mapReadyRef.current = true;
       setMapReady(true);
+      syncCelestialMarkers();
     });
 
     const observer = new MutationObserver(hide);
@@ -291,12 +382,17 @@ export default function MapboxMapBase({
       map.off("mouseleave", FLIGHTS_LAYER_ID, onMouseLeave);
       map.off("move", repositionTooltip);
       map.off("zoom", repositionTooltip);
+      map.off("zoom", syncCelestialMarkers);
+      map.off("zoomend", syncCelestialMarkers);
       tooltipEl.remove();
       tooltipRef.current = null;
       activeFlightRef.current = null;
+      mapReadyRef.current = false;
       setMapReady(false);
       markersRef.current.forEach((marker) => marker.remove());
       markersRef.current = [];
+      celestialMarkersRef.current.forEach((marker) => marker.remove());
+      celestialMarkersRef.current = [];
       if (map.getLayer(FLIGHTS_LAYER_ID)) map.removeLayer(FLIGHTS_LAYER_ID);
       if (map.getLayer(FLIGHTS_TRAIL_LAYER_ID)) {
         map.removeLayer(FLIGHTS_TRAIL_LAYER_ID);
@@ -308,7 +404,7 @@ export default function MapboxMapBase({
       map.remove();
       mapRef.current = null;
     };
-  }, [token]);
+  }, [token, syncCelestialMarkers]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -333,6 +429,11 @@ export default function MapboxMapBase({
         .addTo(map);
     });
   }, [sightings, onPinPress, mapReady]);
+
+  useEffect(() => {
+    if (!mapReady) return;
+    syncCelestialMarkers();
+  }, [celestialBodies, mapReady, syncCelestialMarkers]);
 
   useEffect(() => {
     const map = mapRef.current;
