@@ -262,9 +262,7 @@ export function useNearbyFlights(
     }
 
     fetchPositions();
-// reduce interval to 2 minutes instead of 30 seconds to save on API calls
-    const interval = setInterval(fetch, 120000); // 2 minutes instead of 30 seconds
-    // const interval = setInterval(fetchPositions, FLIGHT_REFRESH_INTERVAL_MS);
+    const interval = setInterval(fetchPositions, FLIGHT_REFRESH_INTERVAL_MS);
 
     return () => {
       cancelled = true;

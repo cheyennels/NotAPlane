@@ -54,7 +54,7 @@ export default function StepFourDetails() {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.cancelBtn}
-            onPress={() => router.back()}
+            onPress={() => router.replace("/(tabs)/map" as any)}
           >
             <Text style={styles.cancelBtnText}>Cancel</Text>
           </TouchableOpacity>

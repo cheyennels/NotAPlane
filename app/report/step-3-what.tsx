@@ -92,7 +92,7 @@ export default function StepThreeWhat() {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.cancelBtn}
-            onPress={() => router.back()}
+            onPress={() => router.replace("/(tabs)/map" as any)}
           >
             <Text style={styles.cancelBtnText}>Cancel</Text>
           </TouchableOpacity>

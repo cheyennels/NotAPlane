@@ -1,6 +1,7 @@
 import ReportStepShell from "@/components/report/ReportStepShell";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
+import { analyzeSighting } from "@/lib/analysis";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
@@ -31,23 +32,27 @@ export default function StepFiveReview() {
       return;
     }
 
-    const { error } = await supabase.from("sightings").insert({
-      user_id: user.id,
-      sighted_at: `${form.date} ${form.time}`,
-      duration: form.duration,
-      latitude: form.latitude,
-      longitude: form.longitude,
-      description: form.description,
-      shape: form.shape,
-      colors: form.colors,
-      sound: form.sound,
-      photo_urls: form.photoUris,
-      direction: form.direction,
-      altitude: form.altitude,
-      movement: form.movement,
-      speed: form.speed,
-      status: "pending",
-    });
+    const { data: inserted, error } = await supabase
+      .from("sightings")
+      .insert({
+        user_id: user.id,
+        sighted_at: `${form.date} ${form.time}`,
+        duration: form.duration,
+        latitude: form.latitude,
+        longitude: form.longitude,
+        description: form.description,
+        shape: form.shape,
+        colors: form.colors,
+        sound: form.sound,
+        photo_urls: form.photoUris,
+        direction: form.direction,
+        altitude: form.altitude,
+        movement: form.movement,
+        speed: form.speed,
+        status: "pending",
+      })
+      .select()
+      .single();
 
     if (error) {
       Alert.alert("Error", error.message);
@@ -58,6 +63,16 @@ export default function StepFiveReview() {
     resetForm();
     router.replace("/report/result" as any);
     setLoading(false);
+
+    // Run analysis in background after navigation
+    if (inserted) {
+      analyzeSighting(
+        inserted.id,
+        inserted.latitude,
+        inserted.longitude,
+        inserted.sighted_at,
+      );
+    }
   }
 
   return (

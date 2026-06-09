@@ -7,6 +7,7 @@ import { useEffect, useRef } from "react";
 import { StyleSheet, ViewStyle } from "react-native";
 
 const STYLE_ID = "notaplane-hide-mapbox-controls";
+const MARKER_STYLE_ID = "notaplane-report-location-marker";
 
 type ReportLocationMapProps = {
   coordinate: [number, number];
@@ -35,6 +36,18 @@ function ensureGlobalHideStyles() {
     .mapboxgl-ctrl-attrib-button {
       display: none !important;
     }
+  `;
+  document.head.appendChild(style);
+}
+
+function ensureReportLocationMarkerStyles() {
+  if (typeof document === "undefined" || document.getElementById(MARKER_STYLE_ID)) {
+    return;
+  }
+
+  const style = document.createElement("style");
+  style.id = MARKER_STYLE_ID;
+  style.textContent = `
     .report-location-marker {
       width: 18px;
       height: 18px;
@@ -42,6 +55,7 @@ function ensureGlobalHideStyles() {
       background-color: ${Colors.green};
       border: 2px solid ${Colors.black};
       box-shadow: 0 0 8px rgba(57, 255, 20, 0.9);
+      cursor: pointer;
     }
   `;
   document.head.appendChild(style);
@@ -61,6 +75,7 @@ export default function ReportLocationMapBase({
     if (!token) return;
 
     ensureGlobalHideStyles();
+    ensureReportLocationMarkerStyles();
     const container = containerRef.current;
     if (!container) return;
 
@@ -76,8 +91,15 @@ export default function ReportLocationMapBase({
 
     const markerElement = document.createElement("div");
     markerElement.className = "report-location-marker";
+    markerElement.style.width = "18px";
+    markerElement.style.height = "18px";
+    markerElement.style.borderRadius = "50%";
+    markerElement.style.backgroundColor = Colors.green;
+    markerElement.style.border = `2px solid ${Colors.black}`;
+    markerElement.style.boxShadow = "0 0 8px rgba(57, 255, 20, 0.9)";
+    markerElement.style.cursor = "pointer";
 
-    const marker = new mapboxgl.Marker({ element: markerElement })
+    const marker = new mapboxgl.Marker({ element: markerElement, anchor: "center" })
       .setLngLat(coordinate)
       .addTo(map);
 

@@ -68,7 +68,7 @@ export default function ReportLocationMapBase({
         centerCoordinate={coordinate}
         animationMode="none"
       />
-      <MarkerView coordinate={coordinate}>
+      <MarkerView coordinate={coordinate} anchor={{ x: 0.5, y: 0.5 }}>
         <View style={styles.pin} />
       </MarkerView>
     </MapView>

@@ -39,12 +39,6 @@ export default function StepTwoWhere() {
     }
   }
 
-  function handleMapPress(e: any) {
-    if (useCurrentLocation) return; // don't move pin if using GPS
-    const coords = e.geometry.coordinates;
-    setCoordinates(coords);
-  }
-
   function formatLat(coord: number) {
     return `${Math.abs(coord).toFixed(4)}° ${coord >= 0 ? "N" : "S"}`;
   }
@@ -72,7 +66,7 @@ export default function StepTwoWhere() {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.cancelBtn}
-            onPress={() => router.back()}
+            onPress={() => router.replace("/(tabs)/map" as any)}
           >
             <Text style={styles.cancelBtnText}>Cancel</Text>
           </TouchableOpacity>
@@ -83,7 +77,9 @@ export default function StepTwoWhere() {
         <ReportLocationMap
           style={styles.map}
           coordinate={coordinates}
-          onCoordinateChange={setCoordinates}
+          onCoordinateChange={(coords) => {
+            if (!useCurrentLocation) setCoordinates(coords);
+          }}
         />
         <Text style={styles.mapHint}>TAP TO REPOSITION PIN</Text>
       </View>
