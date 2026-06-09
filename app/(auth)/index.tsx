@@ -1,3 +1,5 @@
+import Button from "@/components/ui/Button";
+import FormField from "@/components/ui/FormField";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
@@ -10,7 +12,6 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -59,24 +60,20 @@ export default function LoginScreen() {
           Login or sign up to start your journey!
         </Text>
 
-        {/* Email */}
-        <Text style={styles.label}>EMAIL</Text>
-        <TextInput
-          style={styles.input}
+        <FormField
+          label="Email"
+          background="dark"
           placeholder="Enter email"
-          placeholderTextColor={Colors.muted}
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
           keyboardType="email-address"
         />
 
-        {/* Password */}
-        <Text style={styles.label}>PASSWORD</Text>
-        <TextInput
-          style={styles.input}
+        <FormField
+          label="Password"
+          background="dark"
           placeholder="Enter password"
-          placeholderTextColor={Colors.muted}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -91,15 +88,11 @@ export default function LoginScreen() {
         {errorMessage ? (
           <Text style={styles.errorText}>{errorMessage}</Text>
         ) : null}
-        <TouchableOpacity
-          style={[styles.btnPrimary, loading && styles.btnDisabled]}
+        <Button
+          label={loading ? "Logging in..." : "Login"}
           onPress={handleLogin}
           disabled={loading}
-        >
-          <Text style={styles.btnPrimaryText}>
-            {loading ? "Logging in..." : "Login"}
-          </Text>
-        </TouchableOpacity>
+        />
 
         <Pressable
           style={styles.signupFooter}
@@ -147,23 +140,6 @@ const styles = StyleSheet.create({
     marginBottom: 40,
     lineHeight: 20,
   },
-  label: {
-    fontFamily: Fonts.mono,
-    fontSize: 9,
-    color: Colors.green,
-    letterSpacing: 2,
-    marginBottom: 6,
-  },
-  input: {
-    backgroundColor: Colors.black,
-    borderWidth: 2,
-    borderColor: Colors.white,
-    padding: 14,
-    fontFamily: Fonts.mono,
-    fontSize: 12,
-    color: Colors.white,
-    marginBottom: 16,
-  },
   forgotPassword: {
     fontFamily: Fonts.mono,
     fontSize: 10,
@@ -176,20 +152,6 @@ const styles = StyleSheet.create({
     color: Colors.red,
     marginBottom: 12,
     lineHeight: 16,
-  },
-  btnPrimary: {
-    backgroundColor: Colors.green,
-    padding: 16,
-    alignItems: "center",
-  },
-  btnPrimaryText: {
-    fontFamily: Fonts.display,
-    fontSize: 12,
-    color: Colors.black,
-    letterSpacing: 1,
-  },
-  btnDisabled: {
-    opacity: 0.5,
   },
   signupFooter: {
     flexDirection: "row",

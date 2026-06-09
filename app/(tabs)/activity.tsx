@@ -1,3 +1,5 @@
+import ScreenHeader from "@/components/ui/ScreenHeader";
+import SectionLabel from "@/components/ui/SectionLabel";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
 import { supabase } from "@/lib/supabase";
@@ -113,27 +115,23 @@ export default function ActivityScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Activity</Text>
-        <Text style={styles.headerSub}>
-          {newItems.length} New notifications
-        </Text>
-      </View>
+      <ScreenHeader
+        title="Activity"
+        subtitle={`${newItems.length} New notifications`}
+      />
 
       {loading ? (
         <ActivityIndicator color={Colors.green} style={{ marginTop: 40 }} />
       ) : (
         <ScrollView contentContainerStyle={styles.inner}>
-          <Text style={styles.sectionLabel}>NEW</Text>
+          <SectionLabel variant="section">New</SectionLabel>
           {newItems.length === 0 ? (
             <Text style={styles.empty}>No new activity</Text>
           ) : (
             newItems.map(renderItem)
           )}
 
-          <Text style={[styles.sectionLabel, styles.sectionLabelOlder]}>
-            OLDER
-          </Text>
+          <SectionLabel variant="section">Older</SectionLabel>
           {olderItems.length === 0 ? (
             <Text style={styles.empty}>No older activity</Text>
           ) : (
@@ -147,30 +145,7 @@ export default function ActivityScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.black },
-  header: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 16 },
-  headerTitle: {
-    fontFamily: Fonts.display,
-    fontSize: 22,
-    color: Colors.white,
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
-  headerSub: {
-    fontFamily: Fonts.mono,
-    fontSize: 11,
-    color: Colors.muted,
-    letterSpacing: 1,
-  },
   inner: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 40, gap: 10 },
-  sectionLabel: {
-    fontFamily: Fonts.mono,
-    fontSize: 9,
-    color: Colors.green,
-    letterSpacing: 3,
-    textTransform: "uppercase",
-    marginBottom: 4,
-  },
-  sectionLabelOlder: { marginTop: 8 },
   notifCard: {
     borderWidth: 2,
     borderColor: Colors.white,

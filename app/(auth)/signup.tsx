@@ -1,3 +1,5 @@
+import Button from "@/components/ui/Button";
+import FormField from "@/components/ui/FormField";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
 import { router } from "expo-router";
@@ -9,8 +11,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
-  TouchableOpacity,
 } from "react-native";
 import { supabase } from "../../lib/supabase";
 
@@ -93,72 +93,55 @@ export default function SignUpScreen() {
           Please fill out fields to create an account
         </Text>
 
-        {/* Name */}
-        <Text style={styles.label}>NAME</Text>
-        <TextInput
-          style={styles.input}
+        <FormField
+          label="Name"
+          background="dark"
           placeholder="Enter full name"
-          placeholderTextColor={Colors.muted}
           value={name}
           onChangeText={setName}
           autoCapitalize="words"
         />
 
-        {/* Email */}
-        <Text style={styles.label}>EMAIL</Text>
-        <TextInput
-          style={styles.input}
+        <FormField
+          label="Email"
+          background="dark"
           placeholder="Enter email"
-          placeholderTextColor={Colors.muted}
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
           keyboardType="email-address"
         />
 
-        {/* Password */}
-        <Text style={styles.label}>PASSWORD</Text>
-        <TextInput
-          style={styles.input}
+        <FormField
+          label="Password"
+          background="dark"
           placeholder="Enter password"
-          placeholderTextColor={Colors.muted}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
+          hint="*password must be 7 characters with a special character"
         />
-        <Text style={styles.hint}>
-          *password must be 7 characters with a special character
-        </Text>
 
-        {/* Confirm Password */}
-        <Text style={styles.label}>CONFIRM PASSWORD</Text>
-        <TextInput
-          style={styles.input}
+        <FormField
+          label="Confirm Password"
+          background="dark"
           placeholder="Confirm password"
-          placeholderTextColor={Colors.muted}
           value={confirmPassword}
           onChangeText={setConfirmPassword}
           secureTextEntry
         />
 
-        {/* Continue button */}
-        <TouchableOpacity
-          style={[styles.btnPrimary, loading && styles.btnDisabled]}
+        <Button
+          label={loading ? "Creating account..." : "Continue"}
           onPress={handleSignUp}
           disabled={loading}
-        >
-          <Text style={styles.btnPrimaryText}>
-            {loading ? "Creating account..." : "Continue"}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Back to login */}
-        <TouchableOpacity
-          style={styles.btnOutline}
+          style={styles.continueBtn}
+        />
+        <Button
+          label="Back to Login"
+          variant="outline"
           onPress={() => router.back()}
-        >
-          <Text style={styles.btnOutlineText}>Back to Login</Text>
-        </TouchableOpacity>
+        />
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -187,57 +170,8 @@ const styles = StyleSheet.create({
     marginBottom: 40,
     lineHeight: 20,
   },
-  label: {
-    fontFamily: Fonts.mono,
-    fontSize: 9,
-    color: Colors.green,
-    letterSpacing: 2,
-    marginBottom: 6,
-  },
-  input: {
-    backgroundColor: Colors.black,
-    borderWidth: 2,
-    borderColor: Colors.white,
-    padding: 14,
-    fontFamily: Fonts.mono,
-    fontSize: 12,
-    color: Colors.white,
-    marginBottom: 16,
-  },
-  hint: {
-    fontFamily: Fonts.mono,
-    fontSize: 9,
-    color: Colors.muted,
-    marginTop: -10,
-    marginBottom: 16,
-    letterSpacing: 0.5,
-  },
-  btnPrimary: {
-    backgroundColor: Colors.green,
-    padding: 16,
-    alignItems: "center",
+  continueBtn: {
     marginTop: 8,
     marginBottom: 12,
-  },
-  btnPrimaryText: {
-    fontFamily: Fonts.display,
-    fontSize: 12,
-    color: Colors.black,
-    letterSpacing: 1,
-  },
-  btnDisabled: {
-    opacity: 0.5,
-  },
-  btnOutline: {
-    borderWidth: 2,
-    borderColor: Colors.white,
-    padding: 16,
-    alignItems: "center",
-  },
-  btnOutlineText: {
-    fontFamily: Fonts.display,
-    fontSize: 12,
-    color: Colors.white,
-    letterSpacing: 1,
   },
 });

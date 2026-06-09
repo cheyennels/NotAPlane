@@ -1,20 +1,10 @@
+import BottomActionBar from "@/components/ui/BottomActionBar";
+import Button from "@/components/ui/Button";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
+import { getStatusColor, getStatusLabel } from "@/lib/status";
 import { router, useLocalSearchParams } from "expo-router";
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
-
-const STATUS_CONFIG: Record<string, { color: string; label: string }> = {
-  explained: { color: Colors.blue, label: "Explained" },
-  partial: { color: Colors.green, label: "Partial Match" },
-  unexplained: { color: Colors.red ?? "#ff4444", label: "Unexplained" },
-  pending: { color: Colors.muted, label: "Pending" },
-};
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 export default function ResultScreen() {
   const { status, matchedFlight, matchedCelestial } = useLocalSearchParams<{
@@ -23,7 +13,8 @@ export default function ResultScreen() {
     matchedCelestial: string;
   }>();
 
-  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.pending;
+  const statusColor = getStatusColor(status);
+  const statusLabel = getStatusLabel(status);
 
   const flightLabel =
     matchedFlight && matchedFlight !== "null" ? matchedFlight : null;
@@ -36,10 +27,10 @@ export default function ResultScreen() {
         <Text style={styles.title}>Analysis Complete</Text>
 
         {/* Status badge */}
-        <View style={[styles.statusBadge, { borderColor: cfg.color }]}>
-          <View style={[styles.statusDot, { backgroundColor: cfg.color }]} />
-          <Text style={[styles.statusLabel, { color: cfg.color }]}>
-            {cfg.label.toUpperCase()}
+        <View style={[styles.statusBadge, { borderColor: statusColor }]}>
+          <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+          <Text style={[styles.statusLabel, { color: statusColor }]}>
+            {statusLabel.toUpperCase()}
           </Text>
         </View>
 
@@ -120,14 +111,12 @@ export default function ResultScreen() {
         </View>
       </ScrollView>
 
-      <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={styles.returnBtn}
+      <BottomActionBar>
+        <Button
+          label="Return Home"
           onPress={() => router.replace("/(tabs)/map" as any)}
-        >
-          <Text style={styles.returnBtnText}>Return Home</Text>
-        </TouchableOpacity>
-      </View>
+        />
+      </BottomActionBar>
     </View>
   );
 }
@@ -204,21 +193,5 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: Colors.muted,
     lineHeight: 17,
-  },
-  bottomBar: {
-    padding: 16,
-    paddingBottom: 32,
-    backgroundColor: Colors.black,
-  },
-  returnBtn: {
-    backgroundColor: Colors.green,
-    padding: 16,
-    alignItems: "center",
-  },
-  returnBtnText: {
-    fontFamily: Fonts.display,
-    fontSize: 12,
-    color: Colors.black,
-    letterSpacing: 1,
   },
 });

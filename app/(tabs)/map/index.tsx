@@ -1,6 +1,7 @@
 import SkyCompass from "@/components/map/SkyCompass";
 import MapboxMap from "@/components/map/MapboxMap";
 import { MapSighting } from "@/components/map/types";
+import Button from "@/components/ui/Button";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
 import { useFilters } from "@/context/FilterContext";
@@ -9,7 +10,7 @@ import { useNearbyFlights } from "@/hooks/useFlightData";
 import { supabase } from "@/lib/supabase";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 type Sighting = MapSighting & {
   created_at: string;
@@ -154,18 +155,18 @@ export default function MapScreen() {
 
       {/* Bottom buttons */}
       <View style={styles.bottomBar}>
-        <TouchableOpacity
+        <Button
+          label="Filter"
+          variant="outline"
           style={styles.filterBtn}
           onPress={() => router.push("/(tabs)/map/filter" as any)}
-        >
-          <Text style={styles.filterBtnText}>Filter</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
+        />
+        <Button
+          label="File Report"
+          variant="accent"
           style={styles.fileReportBtn}
           onPress={() => router.push("/report/step-1-when" as any)}
-        >
-          <Text style={styles.fileReportBtnText}>File Report</Text>
-        </TouchableOpacity>
+        />
       </View>
     </View>
   );
@@ -223,31 +224,12 @@ const styles = StyleSheet.create({
   },
   filterBtn: {
     width: "30%",
-    borderWidth: 2,
-    borderColor: Colors.white,
     padding: 14,
-    alignItems: "center",
     backgroundColor: Colors.black,
-  },
-  filterBtnText: {
-    fontFamily: Fonts.display,
-    fontSize: 12,
-    color: Colors.white,
-    letterSpacing: 1,
   },
   fileReportBtn: {
     width: "40%",
-    backgroundColor: Colors.darkGreen,
-    borderWidth: 2,
-    borderColor: Colors.green,
     padding: 14,
-    alignItems: "center",
-  },
-  fileReportBtnText: {
-    fontFamily: Fonts.display,
-    fontSize: 12,
-    color: Colors.green,
-    letterSpacing: 1,
   },
   mapFallback: {
     flex: 1,

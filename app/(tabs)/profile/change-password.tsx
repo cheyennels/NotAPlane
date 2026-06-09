@@ -1,16 +1,11 @@
+import BackButton from "@/components/ui/BackButton";
+import BottomActionBar from "@/components/ui/BottomActionBar";
+import Button from "@/components/ui/Button";
+import FormField from "@/components/ui/FormField";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
-import { router } from "expo-router";
 import { useState } from "react";
-import {
-    Alert,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { supabase } from "../../../lib/supabase";
 
 export default function ChangePasswordScreen() {
@@ -51,10 +46,7 @@ export default function ChangePasswordScreen() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.inner}>
-        {/* Back button */}
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Text style={styles.backText}>← Change Password</Text>
-        </TouchableOpacity>
+        <BackButton label="← Change Password" style={styles.backBtn} />
 
         {/* Success banner */}
         {success && (
@@ -67,51 +59,43 @@ export default function ChangePasswordScreen() {
           </View>
         )}
 
-        {/* Current password */}
-        <Text style={styles.label}>Current Password</Text>
-        <TextInput
-          style={styles.input}
+        <FormField
+          label="Current Password"
           placeholder="enter current password"
-          placeholderTextColor={Colors.muted}
           value={currentPassword}
           onChangeText={setCurrentPassword}
           secureTextEntry
         />
 
-        {/* New password */}
-        <Text style={styles.label}>New Password</Text>
-        <TextInput
-          style={[
-            styles.input,
-            newPassword.length > 0 && allMet && styles.inputSuccess,
-          ]}
+        <FormField
+          label="New Password"
           placeholder="enter new password"
-          placeholderTextColor={Colors.muted}
           value={newPassword}
           onChangeText={setNewPassword}
           secureTextEntry
+          status={newPassword.length > 0 && allMet ? "success" : "default"}
+          hint="*password must be 7 characters with a special character"
         />
-        <Text style={styles.hint}>
-          *password must be 7 characters with a special character
-        </Text>
 
-        {/* Confirm new password */}
-        <Text style={styles.label}>Confirm New Password</Text>
-        <TextInput
-          style={[
-            styles.input,
-            confirmPassword.length > 0 && !passwordsMatch && styles.inputError,
-            confirmPassword.length > 0 && passwordsMatch && styles.inputSuccess,
-          ]}
+        <FormField
+          label="Confirm New Password"
           placeholder="re-enter new password"
-          placeholderTextColor={Colors.muted}
           value={confirmPassword}
           onChangeText={setConfirmPassword}
           secureTextEntry
+          status={
+            confirmPassword.length === 0
+              ? "default"
+              : passwordsMatch
+                ? "success"
+                : "error"
+          }
+          errorText={
+            confirmPassword.length > 0 && !passwordsMatch
+              ? "*passwords do not match"
+              : undefined
+          }
         />
-        {confirmPassword.length > 0 && !passwordsMatch && (
-          <Text style={styles.errorHint}>*passwords do not match</Text>
-        )}
 
         {/* Password requirements */}
         <Text style={styles.requirementsTitle}>Password Requirements</Text>
@@ -125,21 +109,14 @@ export default function ChangePasswordScreen() {
         ))}
       </ScrollView>
 
-      {/* Bottom buttons */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={[styles.continueBtn, !canSubmit && styles.btnDisabled]}
+      <BottomActionBar>
+        <Button
+          label={loading ? "Updating..." : success ? "Done" : "Continue"}
           onPress={handleChangePassword}
           disabled={!canSubmit || loading}
-        >
-          <Text style={styles.continueBtnText}>
-            {loading ? "Updating..." : success ? "Done" : "Continue"}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.forgotBtn} onPress={() => {}}>
-          <Text style={styles.forgotBtnText}>Forgot your password?</Text>
-        </TouchableOpacity>
-      </View>
+        />
+        <Button label="Forgot your password?" variant="outline" />
+      </BottomActionBar>
     </View>
   );
 }
@@ -153,23 +130,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 60,
     paddingBottom: 24,
-    gap: 8,
   },
   backBtn: {
     marginBottom: 16,
-  },
-  backText: {
-    fontFamily: Fonts.display,
-    fontSize: 14,
-    color: Colors.white,
-    letterSpacing: 1,
   },
   successBanner: {
     backgroundColor: "rgba(57,255,20,0.07)",
     borderWidth: 2,
     borderColor: Colors.green,
     padding: 14,
-    marginBottom: 8,
+    marginBottom: 16,
   },
   successTitle: {
     fontFamily: Fonts.display,
@@ -183,44 +153,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: Colors.muted,
     lineHeight: 16,
-  },
-  label: {
-    fontFamily: Fonts.mono,
-    fontSize: 9,
-    color: Colors.green,
-    letterSpacing: 2,
-    textTransform: "uppercase",
-    marginBottom: 4,
-    marginTop: 8,
-  },
-  input: {
-    backgroundColor: Colors.surface2,
-    borderWidth: 2,
-    borderColor: Colors.white,
-    padding: 14,
-    fontFamily: Fonts.mono,
-    fontSize: 12,
-    color: Colors.white,
-  },
-  inputError: {
-    borderColor: Colors.red,
-  },
-  inputSuccess: {
-    borderColor: Colors.green,
-  },
-  hint: {
-    fontFamily: Fonts.mono,
-    fontSize: 9,
-    color: Colors.muted,
-    letterSpacing: 0.5,
-    marginTop: 4,
-  },
-  errorHint: {
-    fontFamily: Fonts.mono,
-    fontSize: 9,
-    color: Colors.red,
-    letterSpacing: 0.5,
-    marginTop: 4,
   },
   requirementsTitle: {
     fontFamily: Fonts.display,
@@ -240,37 +172,5 @@ const styles = StyleSheet.create({
   },
   requirementMet: {
     color: Colors.green,
-  },
-  bottomBar: {
-    padding: 16,
-    paddingBottom: 32,
-    gap: 10,
-    backgroundColor: Colors.black,
-  },
-  continueBtn: {
-    backgroundColor: Colors.green,
-    padding: 16,
-    alignItems: "center",
-  },
-  continueBtnText: {
-    fontFamily: Fonts.display,
-    fontSize: 12,
-    color: Colors.black,
-    letterSpacing: 1,
-  },
-  btnDisabled: {
-    backgroundColor: Colors.muted,
-  },
-  forgotBtn: {
-    borderWidth: 2,
-    borderColor: Colors.white,
-    padding: 16,
-    alignItems: "center",
-  },
-  forgotBtnText: {
-    fontFamily: Fonts.display,
-    fontSize: 12,
-    color: Colors.white,
-    letterSpacing: 1,
   },
 });

@@ -1,4 +1,8 @@
 import ReportStepShell from "@/components/report/ReportStepShell";
+import BottomActionBar from "@/components/ui/BottomActionBar";
+import Button from "@/components/ui/Button";
+import PillGroup from "@/components/ui/PillGroup";
+import SectionLabel from "@/components/ui/SectionLabel";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
 import * as ImagePicker from "expo-image-picker";
@@ -83,23 +87,17 @@ export default function StepThreeWhat() {
       step={3}
       stepHeading="What did you see?"
       footer={
-        <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={styles.continueBtn}
-            onPress={handleContinue}
-          >
-            <Text style={styles.continueBtnText}>Continue</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.cancelBtn}
+        <BottomActionBar>
+          <Button label="Continue" onPress={handleContinue} />
+          <Button
+            label="Cancel"
+            variant="outline"
             onPress={() => router.replace("/(tabs)/map" as any)}
-          >
-            <Text style={styles.cancelBtnText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
+          />
+        </BottomActionBar>
       }
     >
-      <Text style={styles.label}>DESCRIPTION OF EVENT</Text>
+      <SectionLabel>Description of Event</SectionLabel>
       <TextInput
         style={styles.textArea}
         placeholder="description of event (280 chars)"
@@ -112,53 +110,21 @@ export default function StepThreeWhat() {
       />
       <Text style={styles.charCount}>{description.length}/280</Text>
 
-      {/* Shape */}
-      <Text style={styles.label}>SHAPE</Text>
-      <View style={styles.pillGrid}>
-        {SHAPES.map((shape) => (
-          <TouchableOpacity
-            key={shape}
-            style={[styles.pill, selectedShape === shape && styles.pillActive]}
-            onPress={() => setSelectedShape(shape)}
-          >
-            <Text
-              style={[
-                styles.pillText,
-                selectedShape === shape && styles.pillTextActive,
-              ]}
-            >
-              {shape}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <SectionLabel>Shape</SectionLabel>
+      <PillGroup
+        options={SHAPES}
+        selected={selectedShape}
+        onSelect={setSelectedShape}
+      />
 
-      {/* Sound */}
-      <Text style={styles.label}>SOUND</Text>
-      <View style={styles.pillGrid}>
-        {SOUNDS.map((sound) => (
-          <TouchableOpacity
-            key={sound}
-            style={[
-              styles.pill,
-              selectedSounds.includes(sound) && styles.pillActive,
-            ]}
-            onPress={() => toggleSound(sound)}
-          >
-            <Text
-              style={[
-                styles.pillText,
-                selectedSounds.includes(sound) && styles.pillTextActive,
-              ]}
-            >
-              {sound}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <SectionLabel>Sound</SectionLabel>
+      <PillGroup
+        options={SOUNDS}
+        selected={selectedSounds}
+        onSelect={toggleSound}
+      />
 
-      {/* Color */}
-      <Text style={styles.label}>COLOR</Text>
+      <SectionLabel>Color</SectionLabel>
       <View style={styles.colorRow}>
         {COLORS.map((color) => (
           <TouchableOpacity
@@ -173,8 +139,7 @@ export default function StepThreeWhat() {
         ))}
       </View>
 
-      {/* Photo */}
-      <Text style={styles.label}>PHOTO</Text>
+      <SectionLabel>Photo</SectionLabel>
       <View style={styles.photoRow}>
         <TouchableOpacity style={styles.photoAdd} onPress={pickImage}>
           <Text style={styles.photoAddText}>+</Text>
@@ -196,13 +161,6 @@ export default function StepThreeWhat() {
 }
 
 const styles = StyleSheet.create({
-  label: {
-    fontFamily: Fonts.mono,
-    fontSize: 9,
-    color: Colors.green,
-    letterSpacing: 2,
-    marginBottom: 8,
-  },
   textArea: {
     backgroundColor: Colors.surface2,
     borderWidth: 2,
@@ -220,30 +178,6 @@ const styles = StyleSheet.create({
     color: Colors.muted,
     textAlign: "right",
     marginBottom: 20,
-  },
-  pillGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 20,
-  },
-  pill: {
-    borderWidth: 2,
-    borderColor: Colors.white,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-  },
-  pillActive: {
-    borderColor: Colors.green,
-    backgroundColor: "rgba(57,255,20,0.07)",
-  },
-  pillText: {
-    fontFamily: Fonts.mono,
-    fontSize: 10,
-    color: Colors.muted,
-  },
-  pillTextActive: {
-    color: Colors.green,
   },
   colorRow: {
     flexDirection: "row",
@@ -304,34 +238,5 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.mono,
     fontSize: 9,
     color: Colors.white,
-  },
-  bottomBar: {
-    padding: 16,
-    paddingBottom: 32,
-    gap: 10,
-    backgroundColor: Colors.black,
-  },
-  continueBtn: {
-    backgroundColor: Colors.green,
-    padding: 16,
-    alignItems: "center",
-  },
-  continueBtnText: {
-    fontFamily: Fonts.display,
-    fontSize: 12,
-    color: Colors.black,
-    letterSpacing: 1,
-  },
-  cancelBtn: {
-    borderWidth: 2,
-    borderColor: Colors.white,
-    padding: 16,
-    alignItems: "center",
-  },
-  cancelBtnText: {
-    fontFamily: Fonts.display,
-    fontSize: 12,
-    color: Colors.white,
-    letterSpacing: 1,
   },
 });

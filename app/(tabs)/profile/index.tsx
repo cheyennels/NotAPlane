@@ -1,3 +1,9 @@
+import Button from "@/components/ui/Button";
+import FormField from "@/components/ui/FormField";
+import ScreenHeader from "@/components/ui/ScreenHeader";
+import SectionLabel from "@/components/ui/SectionLabel";
+import StatsRow from "@/components/ui/StatsRow";
+import ToggleRow from "@/components/ui/ToggleRow";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
 import { router } from "expo-router";
@@ -7,13 +13,12 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { supabase } from "../../../lib/supabase";
 
-function ToggleRow({
+function SettingToggle({
   title,
   subtitle,
   defaultValue,
@@ -23,20 +28,13 @@ function ToggleRow({
   defaultValue: boolean;
 }) {
   const [value, setValue] = useState(defaultValue);
-
   return (
-    <View style={styles.toggleRow}>
-      <View style={styles.toggleInfo}>
-        <Text style={styles.toggleTitle}>{title}</Text>
-        <Text style={styles.toggleSubtitle}>{subtitle}</Text>
-      </View>
-      <TouchableOpacity
-        style={[styles.toggle, value && styles.toggleActive]}
-        onPress={() => setValue(!value)}
-      >
-        <View style={[styles.toggleKnob, value && styles.toggleKnobActive]} />
-      </TouchableOpacity>
-    </View>
+    <ToggleRow
+      label={title}
+      sublabel={subtitle}
+      value={value}
+      onToggle={() => setValue(!value)}
+    />
   );
 }
 
@@ -131,11 +129,7 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Profile</Text>
-        <Text style={styles.headerSub}>Account and settings</Text>
-      </View>
+      <ScreenHeader title="Profile" subtitle="Account and settings" />
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.inner}>
         {/* Profile hero */}
@@ -163,45 +157,41 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Stats */}
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>TOTAL REPORTS</Text>
-            <Text style={styles.statVal}>{totalReports}</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>UNRESOLVED</Text>
-            <Text style={styles.statVal}>{unresolved}</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>CORROBORATIONS</Text>
-            <Text style={styles.statVal}>{corroborations}</Text>
-          </View>
-        </View>
+        <StatsRow
+          stats={[
+            { label: "TOTAL REPORTS", value: totalReports },
+            { label: "UNRESOLVED", value: unresolved },
+            { label: "CORROBORATIONS", value: corroborations },
+          ]}
+        />
 
         <View style={styles.divider} />
 
         {/* Notifications */}
-        <Text style={styles.sectionLabel}>Notifications</Text>
-        <ToggleRow
+        <SectionLabel variant="section" style={styles.sectionLabel}>
+          Notifications
+        </SectionLabel>
+        <SettingToggle
           title="Corroborations"
           subtitle="When someone confirms sightings"
           defaultValue={true}
         />
-        <ToggleRow
+        <SettingToggle
           title="Nearby Sightings"
           subtitle="New reports within 10 miles"
           defaultValue={true}
         />
-        <ToggleRow
+        <SettingToggle
           title="Analysis Updates"
           subtitle="When your sighting gets matched"
           defaultValue={false}
         />
 
         {/* Preferences */}
-        <Text style={styles.sectionLabel}>Preferences</Text>
-        <ToggleRow
+        <SectionLabel variant="section" style={styles.sectionLabel}>
+          Preferences
+        </SectionLabel>
+        <SettingToggle
           title="Measurement for Distance"
           subtitle="miles"
           defaultValue={true}
@@ -209,44 +199,30 @@ export default function ProfileScreen() {
       </ScrollView>
 
       <View style={styles.btnGroup}>
-        <TouchableOpacity style={styles.btnOutline} onPress={handleLogout}>
-          <Text style={styles.btnOutlineText}>Logout</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.btnGreen}
+        <Button label="Logout" variant="outline" onPress={handleLogout} />
+        <Button
+          label="Change Password"
+          variant="accent"
           onPress={() => router.push("/(tabs)/profile/change-password" as any)}
-        >
-          <Text style={styles.btnGreenText}>Change Password</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.btnDanger}>
-          <Text style={styles.btnDangerText}>Delete Account</Text>
-        </TouchableOpacity>
+        />
+        <Button label="Delete Account" variant="danger" />
       </View>
       {editingLocation && (
         <View style={styles.editModal}>
           <Text style={styles.editModalTitle}>Edit Location</Text>
-          <TextInput
-            style={styles.editModalInput}
+          <FormField
             placeholder="e.g. Minneapolis, MN"
-            placeholderTextColor={Colors.muted}
             value={locationInput}
             onChangeText={setLocationInput}
             autoFocus
+            containerStyle={styles.editModalInput}
           />
-          <TouchableOpacity
-            style={styles.editModalSave}
-            onPress={handleSaveLocation}
-          >
-            <Text style={styles.editModalSaveText}>Save</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.editModalCancel}
+          <Button label="Save" onPress={handleSaveLocation} />
+          <Button
+            label="Cancel"
+            variant="outline"
             onPress={() => setEditingLocation(false)}
-          >
-            <Text style={styles.editModalCancelText}>Cancel</Text>
-          </TouchableOpacity>
+          />
         </View>
       )}
     </View>
@@ -257,24 +233,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.black,
-  },
-  header: {
-    paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 16,
-  },
-  headerTitle: {
-    fontFamily: Fonts.display,
-    fontSize: 22,
-    color: Colors.white,
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
-  headerSub: {
-    fontFamily: Fonts.mono,
-    fontSize: 11,
-    color: Colors.muted,
-    letterSpacing: 1,
   },
   inner: {
     paddingHorizontal: 24,
@@ -329,88 +287,13 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textTransform: "uppercase",
   },
-  statsRow: {
-    flexDirection: "row",
-    gap: 0,
-  },
-  statCard: {
-    flex: 1,
-    padding: 12,
-  },
-  statLabel: {
-    fontFamily: Fonts.mono,
-    fontSize: 8,
-    color: Colors.green,
-    letterSpacing: 1,
-    marginBottom: 6,
-    lineHeight: 13,
-    textTransform: "uppercase",
-  },
-  statVal: {
-    fontFamily: Fonts.display,
-    fontSize: 24,
-    color: Colors.white,
-    letterSpacing: 1,
-  },
   divider: {
     height: 2,
     backgroundColor: Colors.white,
     marginVertical: 4,
   },
   sectionLabel: {
-    fontFamily: Fonts.mono,
-    fontSize: 12,
-    color: Colors.green,
-    textTransform: "uppercase",
     marginTop: 12,
-  },
-  toggleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 10,
-    gap: 12,
-  },
-  toggleInfo: {
-    flex: 1,
-  },
-  toggleTitle: {
-    fontFamily: Fonts.display,
-    fontSize: 10,
-    color: Colors.white,
-    letterSpacing: 0.5,
-    marginBottom: 3,
-    textTransform: "uppercase",
-  },
-  toggleSubtitle: {
-    fontFamily: Fonts.mono,
-    fontSize: 9,
-    color: Colors.muted,
-    letterSpacing: 0.5,
-  },
-  toggle: {
-    width: 44,
-    height: 24,
-    backgroundColor: Colors.surface2,
-    borderWidth: 2,
-    borderColor: Colors.white,
-    justifyContent: "center",
-    padding: 2,
-    flexShrink: 0,
-  },
-  toggleActive: {
-    backgroundColor: Colors.green,
-    borderColor: Colors.green,
-  },
-  toggleKnob: {
-    width: 16,
-    height: 16,
-    backgroundColor: Colors.white,
-    alignSelf: "flex-start",
-  },
-  toggleKnobActive: {
-    backgroundColor: Colors.black,
-    alignSelf: "flex-end",
   },
   btnGroup: {
     gap: 10,
@@ -418,43 +301,6 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 32,
     backgroundColor: Colors.black,
-  },
-  btnOutline: {
-    borderWidth: 2,
-    borderColor: Colors.white,
-    padding: 16,
-    alignItems: "center",
-  },
-  btnOutlineText: {
-    fontFamily: Fonts.display,
-    fontSize: 12,
-    color: Colors.white,
-    letterSpacing: 1,
-  },
-  btnGreen: {
-    backgroundColor: Colors.darkGreen,
-    borderWidth: 2,
-    borderColor: Colors.green,
-    padding: 16,
-    alignItems: "center",
-  },
-  btnGreenText: {
-    fontFamily: Fonts.display,
-    fontSize: 12,
-    color: Colors.green,
-    letterSpacing: 1,
-  },
-  btnDanger: {
-    borderWidth: 2,
-    borderColor: Colors.red,
-    padding: 16,
-    alignItems: "center",
-  },
-  btnDangerText: {
-    fontFamily: Fonts.display,
-    fontSize: 12,
-    color: Colors.red,
-    letterSpacing: 1,
   },
   editModal: {
     position: "absolute",
@@ -476,35 +322,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   editModalInput: {
-    backgroundColor: Colors.surface2,
-    borderWidth: 2,
-    borderColor: Colors.white,
-    padding: 14,
-    fontFamily: Fonts.mono,
-    fontSize: 12,
-    color: Colors.white,
-  },
-  editModalSave: {
-    backgroundColor: Colors.green,
-    padding: 16,
-    alignItems: "center",
-  },
-  editModalSaveText: {
-    fontFamily: Fonts.display,
-    fontSize: 12,
-    color: Colors.black,
-    letterSpacing: 1,
-  },
-  editModalCancel: {
-    borderWidth: 2,
-    borderColor: Colors.white,
-    padding: 16,
-    alignItems: "center",
-  },
-  editModalCancelText: {
-    fontFamily: Fonts.display,
-    fontSize: 12,
-    color: Colors.white,
-    letterSpacing: 1,
+    marginBottom: 0,
   },
 });

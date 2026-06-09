@@ -1,14 +1,8 @@
+import BackButton from "@/components/ui/BackButton";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
-import { router } from "expo-router";
 import { ReactNode } from "react";
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 const TOTAL_STEPS = 5;
 
@@ -28,9 +22,7 @@ export default function ReportStepShell({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Text style={styles.backText}>← Back</Text>
-        </TouchableOpacity>
+        <BackButton style={styles.backBtn} />
         <Text style={styles.title}>Report Sighting</Text>
 
         <View style={styles.stepIndicator}>
@@ -81,11 +73,6 @@ const styles = StyleSheet.create({
   },
   backBtn: {
     marginBottom: 16,
-  },
-  backText: {
-    fontFamily: Fonts.mono,
-    fontSize: 13,
-    color: Colors.muted,
   },
   title: {
     fontFamily: Fonts.display,

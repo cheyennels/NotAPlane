@@ -1,15 +1,12 @@
 import ReportStepShell from "@/components/report/ReportStepShell";
+import BottomActionBar from "@/components/ui/BottomActionBar";
+import Button from "@/components/ui/Button";
+import FormField from "@/components/ui/FormField";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
 import { router } from "expo-router";
 import { useState } from "react";
-import {
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { StyleSheet, Text } from "react-native";
 import { useReport } from "../../context/ReportContext";
 
 function formatDate(d: Date) {
@@ -80,54 +77,46 @@ export default function StepOneWhen() {
       step={1}
       stepHeading="When did you see it?"
       footer={
-        <View style={styles.bottomBar}>
-          <TouchableOpacity style={styles.continueBtn} onPress={handleContinue}>
-            <Text style={styles.continueBtnText}>Continue</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.cancelBtn}
+        <BottomActionBar>
+          <Button label="Continue" onPress={handleContinue} />
+          <Button
+            label="Cancel"
+            variant="outline"
             onPress={() => router.replace("/(tabs)/map" as any)}
-          >
-            <Text style={styles.cancelBtnText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
+          />
+        </BottomActionBar>
       }
     >
       <Text style={styles.bigDate}>{formatDate(date)}</Text>
       <Text style={styles.bigTime}>{formatTime(date)}</Text>
 
       {/* Use now button */}
-      <TouchableOpacity style={styles.useNowBtn} onPress={useNow}>
-        <Text style={styles.useNowText}>Set to current date and time</Text>
-      </TouchableOpacity>
+      <Button
+        label="Set to current date and time"
+        variant="tint"
+        onPress={useNow}
+        style={styles.useNowBtn}
+        labelStyle={styles.useNowText}
+      />
 
-      {/* Date field */}
-      <Text style={styles.label}>DATE</Text>
-      <TextInput
-        style={styles.textInput}
+      <FormField
+        label="Date"
         placeholder="date of event"
-        placeholderTextColor={Colors.muted}
         value={dateText}
         onChangeText={handleDateChange}
       />
 
-      {/* Time field */}
-      <Text style={styles.label}>TIME</Text>
-      <TextInput
-        style={styles.textInput}
+      <FormField
+        label="Time"
         placeholder="time (24 hour clock)"
-        placeholderTextColor={Colors.muted}
         value={timeText}
         onChangeText={handleTimeChange}
         keyboardType="numbers-and-punctuation"
       />
 
-      {/* Duration field */}
-      <Text style={styles.label}>LENGTH OF OBSERVAITON</Text>
-      <TextInput
-        style={styles.textInput}
+      <FormField
+        label="Length of Observation"
         placeholder="length of time"
-        placeholderTextColor={Colors.muted}
         value={duration}
         onChangeText={setDuration}
       />
@@ -151,63 +140,10 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   useNowBtn: {
-    borderWidth: 2,
-    borderColor: Colors.green,
     padding: 14,
-    alignItems: "center",
     marginBottom: 28,
-    backgroundColor: "rgba(57,255,20,0.07)",
   },
   useNowText: {
-    fontFamily: Fonts.display,
     fontSize: 10,
-    color: Colors.green,
-    letterSpacing: 1,
-  },
-  label: {
-    fontFamily: Fonts.mono,
-    fontSize: 9,
-    color: Colors.green,
-    letterSpacing: 2,
-    marginBottom: 6,
-  },
-  textInput: {
-    backgroundColor: Colors.surface2,
-    borderWidth: 2,
-    borderColor: Colors.white,
-    padding: 14,
-    marginBottom: 16,
-    fontFamily: Fonts.mono,
-    fontSize: 12,
-    color: Colors.white,
-  },
-  bottomBar: {
-    padding: 16,
-    paddingBottom: 32,
-    gap: 10,
-    backgroundColor: Colors.black,
-  },
-  continueBtn: {
-    backgroundColor: Colors.green,
-    padding: 16,
-    alignItems: "center",
-  },
-  continueBtnText: {
-    fontFamily: Fonts.display,
-    fontSize: 12,
-    color: Colors.black,
-    letterSpacing: 1,
-  },
-  cancelBtn: {
-    borderWidth: 2,
-    borderColor: Colors.white,
-    padding: 16,
-    alignItems: "center",
-  },
-  cancelBtnText: {
-    fontFamily: Fonts.display,
-    fontSize: 12,
-    color: Colors.white,
-    letterSpacing: 1,
   },
 });

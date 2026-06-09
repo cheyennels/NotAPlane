@@ -1,6 +1,11 @@
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
-import { CelestialBody, celestialBodyColor, celestialBodyEarthCoordinate, CELESTIAL_REFERENCE_ZOOM } from "@/hooks/useCelestialData";
+import {
+  CELESTIAL_REFERENCE_ZOOM,
+  CelestialBody,
+  celestialBodyColor,
+  celestialBodyEarthCoordinate,
+} from "@/hooks/useCelestialData";
 import {
   canRenderMapboxMap,
   getMapboxAccessToken,
@@ -127,13 +132,9 @@ export default function MapboxMapBase({
         zoom?: number;
       }) => {
         const zoom =
-          event.properties?.zoom ??
-          event.properties?.zoomLevel ??
-          event.zoom;
+          event.properties?.zoom ?? event.properties?.zoomLevel ?? event.zoom;
         if (typeof zoom === "number") {
-          setMapZoom((prev) =>
-            Math.abs(prev - zoom) < 0.001 ? prev : zoom,
-          );
+          setMapZoom((prev) => (Math.abs(prev - zoom) < 0.001 ? prev : zoom));
           onZoomChange?.(zoom);
         }
       }}
@@ -167,29 +168,29 @@ export default function MapboxMapBase({
 
       {mapZoom < CELESTIAL_REFERENCE_ZOOM &&
         celestialBodies.map((body) => (
-        <MarkerView
-          key={`celestial-${body.id}`}
-          coordinate={celestialBodyEarthCoordinate(body)}
-          anchor={{ x: 0.5, y: 0.5 }}
-        >
-          <View style={styles.celestialMarker}>
-            <View
-              style={[
-                styles.celestialDot,
-                { backgroundColor: celestialBodyColor(body.kind) },
-              ]}
-            />
-            <Text
-              style={[
-                styles.celestialLabel,
-                { color: celestialBodyColor(body.kind) },
-              ]}
-            >
-              {body.name.toUpperCase()}
-            </Text>
-          </View>
-        </MarkerView>
-      ))}
+          <MarkerView
+            key={`celestial-${body.id}`}
+            coordinate={celestialBodyEarthCoordinate(body)}
+            anchor={{ x: 0.5, y: 0.5 }}
+          >
+            <View style={styles.celestialMarker}>
+              <View
+                style={[
+                  styles.celestialDot,
+                  { backgroundColor: celestialBodyColor(body.kind) },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.celestialLabel,
+                  { color: celestialBodyColor(body.kind) },
+                ]}
+              >
+                {body.name.toUpperCase()}
+              </Text>
+            </View>
+          </MarkerView>
+        ))}
 
       <ShapeSource id="notaplane-flight-trails" shape={flightTrailGeoJson}>
         <LineLayer
@@ -203,7 +204,7 @@ export default function MapboxMapBase({
           id="notaplane-flights"
           shape={flightGeoJson}
           onPress={(event: {
-            features?: Array<{ properties?: FlightFeatureProperties }>;
+            features?: { properties?: FlightFeatureProperties }[];
           }) => {
             const properties = event.features?.[0]?.properties;
             if (!properties) return;

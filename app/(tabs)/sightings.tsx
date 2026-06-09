@@ -1,8 +1,11 @@
+import ScreenHeader from "@/components/ui/ScreenHeader";
+import { ErrorView, LoadingView } from "@/components/ui/StateViews";
+import StatsRow from "@/components/ui/StatsRow";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
+import { getStatusColor, getStatusLabel } from "@/lib/status";
 import { router } from "expo-router";
 import {
-  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,32 +13,6 @@ import {
   View,
 } from "react-native";
 import { useSightings } from "../../hooks/useSightings";
-
-function getStatusColor(status: string) {
-  switch (status) {
-    case "unexplained":
-      return Colors.red;
-    case "partial":
-      return Colors.yellow;
-    case "explained":
-      return Colors.blue;
-    default:
-      return Colors.green;
-  }
-}
-
-function getStatusLabel(status: string) {
-  switch (status) {
-    case "unexplained":
-      return "Unexplained";
-    case "partial":
-      return "Partial Match";
-    case "explained":
-      return "Explained";
-    default:
-      return "Pending";
-  }
-}
 
 export default function SightingsScreen() {
   const { sightings, loading, error, refetch } = useSightings();
@@ -47,50 +24,28 @@ export default function SightingsScreen() {
   const corroborations = 0; // will wire up later
 
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator color={Colors.green} size="large" />
-      </View>
-    );
+    return <LoadingView />;
   }
 
   if (error) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.errorText}>Error: {error}</Text>
-        <TouchableOpacity onPress={refetch}>
-          <Text style={styles.retryText}>Tap to retry</Text>
-        </TouchableOpacity>
-      </View>
-    );
+    return <ErrorView message={`Error: ${error}`} onRetry={refetch} />;
   }
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Sightings</Text>
-        <Text style={styles.headerSub}>
-          {sightings.length} Reports Submitted
-        </Text>
-      </View>
+      <ScreenHeader
+        title="My Sightings"
+        subtitle={`${sightings.length} Reports Submitted`}
+      />
 
       <ScrollView contentContainerStyle={styles.inner}>
-        {/* Stats row */}
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>TOTAL REPORTS</Text>
-            <Text style={styles.statVal}>{sightings.length}</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>UNRESOLVED</Text>
-            <Text style={styles.statVal}>{unresolved}</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>CORROBORATIONS</Text>
-            <Text style={styles.statVal}>{corroborations}</Text>
-          </View>
-        </View>
+        <StatsRow
+          stats={[
+            { label: "TOTAL REPORTS", value: sightings.length },
+            { label: "UNRESOLVED", value: unresolved },
+            { label: "CORROBORATIONS", value: corroborations },
+          ]}
+        />
 
         {/* Empty state */}
         {sightings.length === 0 && (
@@ -111,25 +66,17 @@ export default function SightingsScreen() {
               router.push(`/(tabs)/map/sighting/${sighting.id}` as any)
             }
           >
-            {sighting.matched_flight ? (
-              <Text
-                style={[
-                  styles.matchLabel,
-                  { color: getStatusColor(sighting.status) },
-                ]}
-              >
-                {sighting.matched_flight.toUpperCase()}
-              </Text>
-            ) : (
-              <Text
-                style={[
-                  styles.statusLabel,
-                  { color: getStatusColor(sighting.status) },
-                ]}
-              >
-                {getStatusLabel(sighting.status).toUpperCase()}
-              </Text>
-            )}
+            <Text
+              style={[
+                styles.statusLabel,
+                { color: getStatusColor(sighting.status) },
+              ]}
+            >
+              {(sighting.matched_flight
+                ? sighting.matched_flight
+                : getStatusLabel(sighting.status)
+              ).toUpperCase()}
+            </Text>
 
             <Text style={styles.cardLocation}>
               {sighting.latitude.toFixed(4)}° N ·{" "}
@@ -155,73 +102,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.black,
   },
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: Colors.black,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
-  },
-  errorText: {
-    fontFamily: Fonts.mono,
-    fontSize: 11,
-    color: Colors.red,
-    textAlign: "center",
-  },
-  retryText: {
-    fontFamily: Fonts.mono,
-    fontSize: 11,
-    color: Colors.green,
-    textAlign: "center",
-    textDecorationLine: "underline",
-  },
-  header: {
-    paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 16,
-  },
-  headerTitle: {
-    fontFamily: Fonts.display,
-    fontSize: 22,
-    color: Colors.white,
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
-  headerSub: {
-    fontFamily: Fonts.mono,
-    fontSize: 11,
-    color: Colors.muted,
-    letterSpacing: 1,
-  },
   inner: {
     paddingHorizontal: 24,
     paddingTop: 20,
     paddingBottom: 40,
     gap: 12,
-  },
-  statsRow: {
-    flexDirection: "row",
-    gap: 0,
-    marginBottom: 8,
-  },
-  statCard: {
-    flex: 1,
-    padding: 12,
-  },
-  statLabel: {
-    fontFamily: Fonts.mono,
-    fontSize: 8,
-    color: Colors.green,
-    letterSpacing: 1,
-    marginBottom: 6,
-    lineHeight: 13,
-    textTransform: "uppercase",
-  },
-  statVal: {
-    fontFamily: Fonts.display,
-    fontSize: 24,
-    color: Colors.white,
-    letterSpacing: 1,
   },
   emptyState: {
     borderWidth: 2,
@@ -251,11 +136,6 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   statusLabel: {
-    fontFamily: Fonts.display,
-    fontSize: 11,
-    letterSpacing: 1,
-  },
-  matchLabel: {
     fontFamily: Fonts.display,
     fontSize: 11,
     letterSpacing: 1,

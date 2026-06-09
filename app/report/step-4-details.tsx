@@ -1,15 +1,12 @@
 import ReportStepShell from "@/components/report/ReportStepShell";
-import { Colors } from "@/constants/colors";
-import { Fonts } from "@/constants/fonts";
+import BottomActionBar from "@/components/ui/BottomActionBar";
+import Button from "@/components/ui/Button";
+import FormField from "@/components/ui/FormField";
+import PillGroup from "@/components/ui/PillGroup";
+import SectionLabel from "@/components/ui/SectionLabel";
 import { router } from "expo-router";
 import { useState } from "react";
-import {
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { StyleSheet } from "react-native";
 import { useReport } from "../../context/ReportContext";
 
 const DIRECTIONS = [
@@ -45,84 +42,43 @@ export default function StepFourDetails() {
       step={4}
       stepHeading="Movement & Details"
       footer={
-        <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={styles.continueBtn}
-            onPress={() => router.push("/report/step-5-review" as any)}
-          >
-            <Text style={styles.continueBtnText}>Continue</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.cancelBtn}
+        <BottomActionBar>
+          <Button label="Continue" onPress={handleContinue} />
+          <Button
+            label="Cancel"
+            variant="outline"
             onPress={() => router.replace("/(tabs)/map" as any)}
-          >
-            <Text style={styles.cancelBtnText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
+          />
+        </BottomActionBar>
       }
     >
-      <Text style={styles.label}>DIRECTION OF TRAVEL</Text>
-      <View style={styles.pillGrid}>
-        {DIRECTIONS.map((d) => (
-          <TouchableOpacity
-            key={d}
-            style={[styles.pill, direction === d && styles.pillActive]}
-            onPress={() => setDirection(d)}
-          >
-            <Text
-              style={[
-                styles.pillText,
-                direction === d && styles.pillTextActive,
-              ]}
-            >
-              {d}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <SectionLabel>Direction of Travel</SectionLabel>
+      <PillGroup
+        options={DIRECTIONS}
+        selected={direction}
+        onSelect={setDirection}
+        style={styles.pillGrid}
+      />
 
-      {/* Altitude */}
-      <Text style={styles.label}>ESTIMATED ALTITUDE</Text>
-      <View style={styles.pillGrid}>
-        {ALTITUDES.map((a) => (
-          <TouchableOpacity
-            key={a}
-            style={[styles.pill, altitude === a && styles.pillActive]}
-            onPress={() => setAltitude(a)}
-          >
-            <Text
-              style={[styles.pillText, altitude === a && styles.pillTextActive]}
-            >
-              {a}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <SectionLabel>Estimated Altitude</SectionLabel>
+      <PillGroup
+        options={ALTITUDES}
+        selected={altitude}
+        onSelect={setAltitude}
+        style={styles.pillGrid}
+      />
 
-      {/* Movement type */}
-      <Text style={styles.label}>MOVEMENT TYPE</Text>
-      <View style={styles.pillGrid}>
-        {MOVEMENTS.map((m) => (
-          <TouchableOpacity
-            key={m}
-            style={[styles.pill, movement === m && styles.pillActive]}
-            onPress={() => setMovement(m)}
-          >
-            <Text
-              style={[styles.pillText, movement === m && styles.pillTextActive]}
-            >
-              {m}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <SectionLabel>Movement Type</SectionLabel>
+      <PillGroup
+        options={MOVEMENTS}
+        selected={movement}
+        onSelect={setMovement}
+        style={styles.pillGrid}
+      />
 
-      {/* Speed */}
-      <Text style={styles.label}>SPEED OF OBJECT</Text>
-      <TextInput
-        style={styles.textInput}
+      <FormField
+        label="Speed of Object"
         placeholder="estimated speed"
-        placeholderTextColor={Colors.muted}
         value={speed}
         onChangeText={setSpeed}
       />
@@ -131,74 +87,7 @@ export default function StepFourDetails() {
 }
 
 const styles = StyleSheet.create({
-  label: {
-    fontFamily: Fonts.mono,
-    fontSize: 9,
-    color: Colors.green,
-    letterSpacing: 2,
-    marginBottom: 8,
-  },
   pillGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
     marginBottom: 24,
-  },
-  pill: {
-    borderWidth: 2,
-    borderColor: Colors.white,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-  },
-  pillActive: {
-    borderColor: Colors.green,
-    backgroundColor: "rgba(57,255,20,0.07)",
-  },
-  pillText: {
-    fontFamily: Fonts.mono,
-    fontSize: 10,
-    color: Colors.muted,
-  },
-  pillTextActive: {
-    color: Colors.green,
-  },
-  textInput: {
-    backgroundColor: Colors.surface2,
-    borderWidth: 2,
-    borderColor: Colors.white,
-    padding: 14,
-    marginBottom: 24,
-    fontFamily: Fonts.mono,
-    fontSize: 12,
-    color: Colors.white,
-  },
-  bottomBar: {
-    padding: 16,
-    paddingBottom: 32,
-    gap: 10,
-    backgroundColor: Colors.black,
-  },
-  continueBtn: {
-    backgroundColor: Colors.green,
-    padding: 16,
-    alignItems: "center",
-  },
-  continueBtnText: {
-    fontFamily: Fonts.display,
-    fontSize: 12,
-    color: Colors.black,
-    letterSpacing: 1,
-  },
-  cancelBtn: {
-    borderWidth: 2,
-    borderColor: Colors.white,
-    padding: 16,
-    alignItems: "center",
-  },
-  cancelBtnText: {
-    fontFamily: Fonts.display,
-    fontSize: 12,
-    color: Colors.white,
-    letterSpacing: 1,
   },
 });

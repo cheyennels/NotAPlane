@@ -1,17 +1,12 @@
 import ReportStepShell from "@/components/report/ReportStepShell";
+import BottomActionBar from "@/components/ui/BottomActionBar";
+import Button from "@/components/ui/Button";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
 import { computeSightingAnalysis } from "@/lib/analysis";
 import { router } from "expo-router";
 import { useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
 import { useReport } from "../../context/ReportContext";
 import { supabase } from "../../lib/supabase";
 
@@ -83,31 +78,24 @@ export default function StepFiveReview() {
       step={5}
       stepHeading="Review & Submit"
       footer={
-        <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={[styles.submitBtn, loading && styles.btnDisabled]}
+        <BottomActionBar>
+          <Button
+            label="Submit Report"
             onPress={handleSubmit}
             disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color={Colors.black} />
-            ) : (
-              <Text style={styles.submitBtnText}>Submit Report</Text>
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.editBtn}
+            loading={loading}
+          />
+          <Button
+            label="Edit Report"
+            variant="accent"
             onPress={() => router.replace("/report/step-1-when" as any)}
-          >
-            <Text style={styles.editBtnText}>Edit Report</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.cancelBtn}
+          />
+          <Button
+            label="Cancel"
+            variant="outline"
             onPress={() => router.replace("/(tabs)/map" as any)}
-          >
-            <Text style={styles.cancelBtnText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
+          />
+        </BottomActionBar>
       }
     >
       <View style={styles.reviewRow}>
@@ -217,50 +205,5 @@ const styles = StyleSheet.create({
   reviewValSmall: {
     fontSize: 12,
     lineHeight: 15,
-  },
-  bottomBar: {
-    padding: 16,
-    paddingBottom: 32,
-    gap: 10,
-    backgroundColor: Colors.black,
-  },
-  submitBtn: {
-    backgroundColor: Colors.green,
-    padding: 16,
-    alignItems: "center",
-  },
-  submitBtnText: {
-    fontFamily: Fonts.display,
-    fontSize: 12,
-    color: Colors.black,
-    letterSpacing: 1,
-  },
-  btnDisabled: {
-    opacity: 0.5,
-  },
-  editBtn: {
-    borderWidth: 2,
-    borderColor: Colors.green,
-    padding: 16,
-    alignItems: "center",
-    backgroundColor: Colors.darkGreen,
-  },
-  editBtnText: {
-    fontFamily: Fonts.display,
-    fontSize: 12,
-    color: Colors.green,
-    letterSpacing: 1,
-  },
-  cancelBtn: {
-    borderWidth: 2,
-    borderColor: Colors.white,
-    padding: 16,
-    alignItems: "center",
-  },
-  cancelBtnText: {
-    fontFamily: Fonts.display,
-    fontSize: 12,
-    color: Colors.white,
-    letterSpacing: 1,
   },
 });
