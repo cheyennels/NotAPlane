@@ -1,5 +1,6 @@
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
+import { router } from "expo-router";
 import {
   ActivityIndicator,
   ScrollView,
@@ -106,7 +107,9 @@ export default function SightingsScreen() {
           <TouchableOpacity
             key={sighting.id}
             style={styles.sightingCard}
-            onPress={() => {}}
+            onPress={() =>
+              router.push(`/(tabs)/map/sighting/${sighting.id}` as any)
+            }
           >
             {sighting.matched_flight ? (
               <Text
