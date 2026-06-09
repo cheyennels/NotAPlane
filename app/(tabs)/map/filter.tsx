@@ -6,7 +6,7 @@ import {
     useFilters,
 } from "@/context/FilterContext";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
     ScrollView,
     StyleSheet,
@@ -19,8 +19,11 @@ export default function FilterScreen() {
   const { filters: savedFilters, updateFilters, resetFilters } = useFilters();
   const [filters, setFilters] = useState<MapFilters>(savedFilters);
 
+  useEffect(() => {
+    setFilters(savedFilters);
+  }, [savedFilters]);
+
   function handleApply() {
-    updateFilters(filters);
     router.back();
   }
 
@@ -30,14 +33,19 @@ export default function FilterScreen() {
   }
 
   function toggleFilter(key: keyof MapFilters) {
-    setFilters((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
+    setFilters((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      updateFilters(next);
+      return next;
+    });
   }
 
   function setTimeRange(range: "week" | "all") {
-    setFilters((prev) => ({ ...prev, timeRange: range }));
+    setFilters((prev) => {
+      const next = { ...prev, timeRange: range };
+      updateFilters(next);
+      return next;
+    });
   }
 
   return (

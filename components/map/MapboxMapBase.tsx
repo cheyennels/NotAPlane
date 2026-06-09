@@ -6,23 +6,67 @@ import {
   initializeMapbox,
   isExpoGo,
 } from "@/lib/mapbox";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { getSightingPinColor, MapSighting } from "./types";
+import { OpenSkyFlight } from "@/lib/opensky";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import {
+  FLIGHT_ICON_LAYER_STYLE,
+  FLIGHT_LABEL_FILTER,
+  FLIGHT_LABEL_LAYER_STYLE,
+  FLIGHT_TOOLTIP_LINE_STYLE,
+  FLIGHT_TOOLTIP_STYLE,
+  FLIGHT_TOOLTIP_TITLE_STYLE,
+  FLIGHT_TRAIL_LAYER_STYLE,
+} from "./flightMapStyles";
+import {
+  FlightFeatureProperties,
+  FlightTrail,
+  flightFromProperties,
+  flightTrailsToGeoJson,
+  flightsToGeoJson,
+} from "./flightsGeoJson";
+import { getFlightTooltipLines } from "./flightTooltip";
+import { MapSighting, getSightingPinColor } from "./types";
 
 const DEFAULT_CENTER: [number, number] = [-93.265, 44.9778];
 
 type MapboxMapProps = {
   style?: object;
   sightings?: MapSighting[];
+  flights?: OpenSkyFlight[];
+  flightTrails?: FlightTrail[];
   onPinPress?: (id: string) => void;
 };
 
 export default function MapboxMapBase({
   style,
   sightings = [],
+  flights = [],
+  flightTrails = [],
   onPinPress,
 }: MapboxMapProps) {
+  const [selectedFlight, setSelectedFlight] = useState<OpenSkyFlight | null>(
+    null,
+  );
+  const flightGeoJson = useMemo(
+    () => flightsToGeoJson(flights, flightTrails),
+    [flights, flightTrails],
+  );
+  const flightTrailGeoJson = useMemo(
+    () => flightTrailsToGeoJson(flightTrails),
+    [flightTrails],
+  );
   const token = getMapboxAccessToken();
+
+  useEffect(() => {
+    setSelectedFlight(null);
+  }, [flights]);
 
   if (!token) {
     return (
@@ -55,6 +99,9 @@ export default function MapboxMapBase({
   const MapView = Mapbox.MapView ?? Mapbox.default?.MapView;
   const Camera = Mapbox.Camera ?? Mapbox.default?.Camera;
   const MarkerView = Mapbox.MarkerView ?? Mapbox.default?.MarkerView;
+  const ShapeSource = Mapbox.ShapeSource ?? Mapbox.default?.ShapeSource;
+  const SymbolLayer = Mapbox.SymbolLayer ?? Mapbox.default?.SymbolLayer;
+  const LineLayer = Mapbox.LineLayer ?? Mapbox.default?.LineLayer;
 
   return (
     <MapView
@@ -64,16 +111,19 @@ export default function MapboxMapBase({
       attributionEnabled={false}
       compassEnabled={false}
       scaleBarEnabled={false}
+      onPress={() => setSelectedFlight(null)}
     >
       <Camera
         zoomLevel={11}
         centerCoordinate={DEFAULT_CENTER}
         animationMode="none"
       />
+
       {sightings.map((sighting) => (
         <MarkerView
           key={sighting.id}
           coordinate={[sighting.longitude, sighting.latitude]}
+          anchor={{ x: 0.5, y: 0.5 }}
         >
           <TouchableOpacity
             onPress={() => onPinPress?.(sighting.id)}
@@ -88,6 +138,65 @@ export default function MapboxMapBase({
           </TouchableOpacity>
         </MarkerView>
       ))}
+
+      <ShapeSource id="notaplane-flight-trails" shape={flightTrailGeoJson}>
+        <LineLayer
+          id="notaplane-flight-trails-layer"
+          style={FLIGHT_TRAIL_LAYER_STYLE}
+        />
+      </ShapeSource>
+
+      {flights.length > 0 ? (
+        <ShapeSource
+          id="notaplane-flights"
+          shape={flightGeoJson}
+          onPress={(event: {
+            features?: Array<{ properties?: FlightFeatureProperties }>;
+          }) => {
+            const properties = event.features?.[0]?.properties;
+            if (!properties) return;
+            setSelectedFlight(flightFromProperties(properties));
+          }}
+        >
+          <SymbolLayer
+            id="notaplane-flights-layer"
+            style={FLIGHT_ICON_LAYER_STYLE}
+          />
+          <SymbolLayer
+            id="notaplane-flights-labels"
+            filter={FLIGHT_LABEL_FILTER}
+            style={FLIGHT_LABEL_LAYER_STYLE}
+          />
+        </ShapeSource>
+      ) : null}
+
+      {selectedFlight ? (
+        <MarkerView
+          key={`tooltip-${selectedFlight.icao24}`}
+          coordinate={[selectedFlight.longitude, selectedFlight.latitude]}
+          anchor={{ x: 0.5, y: 0.5 }}
+        >
+          <Pressable
+            onPress={() => setSelectedFlight(selectedFlight)}
+            style={styles.flightMarker}
+          >
+            <View style={styles.flightTooltip}>
+              {getFlightTooltipLines(selectedFlight).map((line, index) => (
+                <Text
+                  key={`${selectedFlight.icao24}-${index}`}
+                  style={
+                    index === 0
+                      ? styles.flightTooltipTitle
+                      : styles.flightTooltipLine
+                  }
+                >
+                  {line}
+                </Text>
+              ))}
+            </View>
+          </Pressable>
+        </MarkerView>
+      ) : null}
     </MapView>
   );
 }
@@ -103,6 +212,17 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: Colors.black,
   },
+  flightMarker: {
+    alignItems: "center",
+    position: "relative",
+  },
+  flightTooltip: {
+    ...FLIGHT_TOOLTIP_STYLE,
+    position: "absolute",
+    bottom: 36,
+  },
+  flightTooltipLine: FLIGHT_TOOLTIP_LINE_STYLE,
+  flightTooltipTitle: FLIGHT_TOOLTIP_TITLE_STYLE,
   fallback: {
     flex: 1,
     backgroundColor: Colors.surface2,

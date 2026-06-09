@@ -15,7 +15,7 @@ export const DEFAULT_FILTERS: MapFilters = {
   showPartial: true,
   showUnexplained: true,
   showPending: true,
-  showFlightPaths: false,
+  showFlightPaths: true,
   showCelestial: false,
   timeRange: "all",
 };

@@ -2,23 +2,12 @@ import MapboxMap from "@/components/map/MapboxMap";
 import { MapSighting } from "@/components/map/types";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
+import { useFilters } from "@/context/FilterContext";
+import { useNearbyFlights } from "@/hooks/useFlightData";
+import { supabase } from "@/lib/supabase";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import {
-  Platform,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { useFilters } from "../../../context/FilterContext";
-import { supabase } from "../../../lib/supabase";
-
-// Only import mapbox-gl on web
-let mapboxgl: any = null;
-if (Platform.OS === "web") {
-  mapboxgl = require("mapbox-gl");
-}
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 type Sighting = MapSighting & {
   created_at: string;
@@ -28,6 +17,15 @@ export default function MapScreen() {
   const [sightings, setSightings] = useState<Sighting[]>([]);
   const [allSightings, setAllSightings] = useState<Sighting[]>([]);
   const { filters } = useFilters();
+  // Minneapolis center coordinates
+  const MAP_CENTER = { latitude: 44.9778, longitude: -93.265 };
+
+  const { flights, flightTrails, error } = useNearbyFlights(
+    MAP_CENTER.latitude,
+    MAP_CENTER.longitude,
+    100,
+    true,
+  );
 
   // Fetch all sightings from Supabase
   useEffect(() => {
@@ -63,51 +61,40 @@ export default function MapScreen() {
     setSightings(filtered);
   }, [allSightings, filters]);
 
-  // Hide Mapbox logo on web
-  useEffect(() => {
-    if (Platform.OS !== "web") return;
-    if (mapboxgl) {
-      mapboxgl.accessToken = process.env.EXPO_PUBLIC_MAPBOX_TOKEN!;
-    }
-    if (typeof document !== "undefined") {
-      const style = document.createElement("style");
-      style.textContent = `
-        .mapboxgl-ctrl-logo { display: none !important; }
-        .mapboxgl-ctrl-attrib { display: none !important; }
-        .mapboxgl-ctrl-bottom-right { display: none !important; }
-        .mapboxgl-ctrl-bottom-left { display: none !important; }
-      `;
-      document.head.appendChild(style);
-      return () => {
-        document.head.removeChild(style);
-      };
-    }
-  }, []);
-
   return (
     <View style={styles.container}>
-      {Platform.OS === "web" ? (
-        <MapboxMap
-          style={styles.map}
-          sightings={sightings}
-          onPinPress={(id: string) =>
-            router.push(`/(tabs)/map/sighting/${id}` as any)
-          }
-        />
-      ) : (
-        <View style={styles.mapFallback}>
-          <Text style={styles.mapFallbackText}>
-            Map requires a native build.{"\n"}Use web preview for now.
+      <MapboxMap
+        style={styles.map}
+        sightings={sightings}
+        flights={filters.showFlightPaths ? flights : []}
+        flightTrails={filters.showFlightPaths ? flightTrails : []}
+        onPinPress={(id: string) =>
+          router.push(`/(tabs)/map/sighting/${id}` as any)
+        }
+      />
+
+      {filters.showFlightPaths && error ? (
+        <View style={styles.flightError}>
+          <Text style={styles.flightErrorText}>{error}</Text>
+        </View>
+      ) : null}
+
+      {filters.showFlightPaths && !error && flights.length === 0 ? (
+        <View style={styles.flightError}>
+          <Text style={styles.flightErrorText}>
+            Loading aircraft… If this persists, OpenSky may be rate-limiting —
+            wait a few minutes and refresh.
           </Text>
         </View>
-      )}
+      ) : null}
 
       {/* Active filter indicator */}
       {(!filters.showExplained ||
         !filters.showPartial ||
         !filters.showUnexplained ||
         !filters.showPending ||
-        filters.timeRange === "week") && (
+        filters.timeRange === "week" ||
+        filters.showFlightPaths) && (
         <View style={styles.filterActive}>
           <Text style={styles.filterActiveText}>● Filters Active</Text>
         </View>
@@ -255,5 +242,22 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: Colors.green,
     letterSpacing: 1,
+  },
+  flightError: {
+    position: "absolute",
+    top: 80,
+    left: 16,
+    right: 16,
+    backgroundColor: "rgba(20,20,20,0.92)",
+    borderWidth: 2,
+    borderColor: Colors.yellow,
+    padding: 8,
+  },
+  flightErrorText: {
+    fontFamily: Fonts.mono,
+    fontSize: 9,
+    color: Colors.yellow,
+    letterSpacing: 0.5,
+    lineHeight: 14,
   },
 });
