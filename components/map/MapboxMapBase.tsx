@@ -1,10 +1,10 @@
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
 import {
-  CELESTIAL_REFERENCE_ZOOM,
   CelestialBody,
   celestialBodyColor,
   celestialBodyEarthCoordinate,
+  celestialBodyVisibleOnMap,
 } from "@/hooks/useCelestialData";
 import {
   canRenderMapboxMap,
@@ -166,8 +166,9 @@ export default function MapboxMapBase({
         </MarkerView>
       ))}
 
-      {mapZoom < CELESTIAL_REFERENCE_ZOOM &&
-        celestialBodies.map((body) => (
+      {celestialBodies
+        .filter((body) => celestialBodyVisibleOnMap(body, mapZoom))
+        .map((body) => (
           <MarkerView
             key={`celestial-${body.id}`}
             coordinate={celestialBodyEarthCoordinate(body)}

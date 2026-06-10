@@ -39,6 +39,7 @@ type Sighting = {
   status: string;
   matched_flight: string | null;
   matched_celestial: string | null;
+  matched_satellite: string | null;
   photo_urls: string[];
   created_at: string;
 };
@@ -133,9 +134,11 @@ export default function SightingDetailScreen() {
 
   const matchTitle = sighting.matched_flight
     ? sighting.matched_flight.toUpperCase()
-    : sighting.matched_celestial
-      ? sighting.matched_celestial.toUpperCase()
-      : "NO FLIGHTS OR CELESTIAL BODIES";
+    : sighting.matched_satellite
+      ? sighting.matched_satellite.toUpperCase()
+      : sighting.matched_celestial
+        ? sighting.matched_celestial.toUpperCase()
+        : "NO FLIGHTS OR CELESTIAL BODIES";
 
   const statusColor = getStatusColor(sighting.status);
 

@@ -1,6 +1,6 @@
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
-import { CelestialBody, celestialBodyColor, celestialBodyEarthCoordinate, CELESTIAL_REFERENCE_ZOOM } from "@/hooks/useCelestialData";
+import { CelestialBody, celestialBodyColor, celestialBodyEarthCoordinate, celestialBodyVisibleOnMap } from "@/hooks/useCelestialData";
 import { getMapboxAccessToken } from "@/lib/mapbox";
 import { OpenSkyFlight } from "@/lib/opensky";
 import mapboxgl from "mapbox-gl";
@@ -262,9 +262,16 @@ export default function MapboxMapBase({
     onZoomChangeRef.current?.(zoom);
 
     const bodies = celestialBodiesRef.current;
-    const bodyIds = bodies.map((body) => body.id).join(",");
-    const shouldShow =
-      zoom < CELESTIAL_REFERENCE_ZOOM && bodies.length > 0;
+    const visibleBodies = bodies.filter((body) =>
+      celestialBodyVisibleOnMap(body, zoom),
+    );
+    const bodyIds = visibleBodies
+      .map(
+        (body) =>
+          `${body.id}:${body.earthLatitude.toFixed(2)}:${body.earthLongitude.toFixed(2)}`,
+      )
+      .join(",");
+    const shouldShow = visibleBodies.length > 0;
 
     if (!shouldShow) {
       if (celestialMarkersRef.current.length > 0) {
@@ -276,14 +283,14 @@ export default function MapboxMapBase({
     }
 
     if (
-      celestialMarkersRef.current.length === bodies.length &&
+      celestialMarkersRef.current.length === visibleBodies.length &&
       celestialBodyIdsRef.current === bodyIds
     ) {
       return;
     }
 
     celestialMarkersRef.current.forEach((marker) => marker.remove());
-    celestialMarkersRef.current = bodies
+    celestialMarkersRef.current = visibleBodies
       .filter((body) => isFinite(body.earthLongitude) && isFinite(body.earthLatitude))
       .map((body) => {
         const [lng, lat] = celestialBodyEarthCoordinate(body);

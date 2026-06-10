@@ -116,7 +116,7 @@ export default function FilterScreen() {
         />
         <ToggleRow
           label="Satellites"
-          sublabel="Live ISS position"
+          sublabel="148 visually bright satellites"
           color="#FF69B4"
           value={filters.showSatellites}
           onToggle={() => toggleFilter("showSatellites")}

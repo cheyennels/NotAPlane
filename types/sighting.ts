@@ -35,6 +35,7 @@ export interface Sighting {
   status: SightingStatus;
   matched_flight: string | null;
   matched_celestial: string | null;
+  matched_satellite: string | null;
   created_at: string;
   corroborations?: number;
 }

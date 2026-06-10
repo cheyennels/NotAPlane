@@ -7,11 +7,13 @@ import { router, useLocalSearchParams } from "expo-router";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 export default function ResultScreen() {
-  const { status, matchedFlight, matchedCelestial } = useLocalSearchParams<{
-    status: string;
-    matchedFlight: string;
-    matchedCelestial: string;
-  }>();
+  const { status, matchedFlight, matchedCelestial, matchedSatellite } =
+    useLocalSearchParams<{
+      status: string;
+      matchedFlight: string;
+      matchedCelestial: string;
+      matchedSatellite: string;
+    }>();
 
   const statusColor = getStatusColor(status);
   const statusLabel = getStatusLabel(status);
@@ -20,13 +22,14 @@ export default function ResultScreen() {
     matchedFlight && matchedFlight !== "null" ? matchedFlight : null;
   const celestialLabel =
     matchedCelestial && matchedCelestial !== "null" ? matchedCelestial : null;
+  const satelliteLabel =
+    matchedSatellite && matchedSatellite !== "null" ? matchedSatellite : null;
 
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.inner}>
         <Text style={styles.title}>Analysis Complete</Text>
 
-        {/* Status badge */}
         <View style={[styles.statusBadge, { borderColor: statusColor }]}>
           <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
           <Text style={[styles.statusLabel, { color: statusColor }]}>
@@ -34,7 +37,6 @@ export default function ResultScreen() {
           </Text>
         </View>
 
-        {/* Flight card */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <View
@@ -71,7 +73,6 @@ export default function ResultScreen() {
           )}
         </View>
 
-        {/* Celestial card */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <View
@@ -103,8 +104,48 @@ export default function ResultScreen() {
             <>
               <Text style={styles.matchTitle}>No Celestial Body Matched</Text>
               <Text style={styles.matchBody}>
-                No known planets or the Moon were prominently visible at the
+                No known planets or bright stars were prominently visible at the
                 reported position and time.
+              </Text>
+            </>
+          )}
+        </View>
+
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <View
+              style={[
+                styles.dot,
+                {
+                  backgroundColor: satelliteLabel ? "#FF69B4" : Colors.muted,
+                },
+              ]}
+            />
+            <Text
+              style={[
+                styles.cardHeaderText,
+                {
+                  color: satelliteLabel ? "#FF69B4" : Colors.muted,
+                },
+              ]}
+            >
+              Satellite
+            </Text>
+          </View>
+          {satelliteLabel ? (
+            <>
+              <Text style={styles.matchTitle}>{satelliteLabel}</Text>
+              <Text style={styles.matchBody}>
+                {satelliteLabel} was passing overhead at your location and time,
+                and may account for the sighting.
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.matchTitle}>No Satellite Matched</Text>
+              <Text style={styles.matchBody}>
+                No tracked satellites were visibly overhead at the reported
+                position and time.
               </Text>
             </>
           )}

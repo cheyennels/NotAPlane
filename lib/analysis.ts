@@ -1,4 +1,5 @@
 import { getBoundingBox, getFlightsInArea } from './opensky';
+import { findBestSatelliteMatch } from './satellites';
 import { supabase } from './supabase';
 
 const EXPLAINED_RADIUS_KM = 10;
@@ -221,65 +222,13 @@ function checkStarMatch(
   return best?.name ?? null;
 }
 
-// ── Satellite matching (wheretheiss.at live position + spherical trig) ────────
-
-function satelliteElevationDeg(
-  observerLat: number,
-  observerLng: number,
-  satLat: number,
-  satLng: number,
-  satAltKm: number,
-): number {
-  const toRad = Math.PI / 180;
-  const lat1 = observerLat * toRad;
-  const lat2 = satLat * toRad;
-  const dLng = (satLng - observerLng) * toRad;
-  const cosC =
-    Math.sin(lat1) * Math.sin(lat2) +
-    Math.cos(lat1) * Math.cos(lat2) * Math.cos(dLng);
-  const centralAngle = Math.acos(Math.min(1, Math.max(-1, cosC)));
-  const earthRadius = 6371;
-  const elevation = Math.atan2(
-    cosC - earthRadius / (earthRadius + satAltKm),
-    Math.sin(centralAngle),
-  );
-  return elevation / toRad;
-}
-
-async function checkSatelliteMatch(
-  latitude: number,
-  longitude: number,
-  minAltitude: number,
-): Promise<string | null> {
-  try {
-    // ISS live position — same API used by useCelestialData.ts
-    const response = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
-    if (!response.ok) return null;
-
-    const data = await response.json();
-    const satLat = Number(data.latitude);
-    const satLng = Number(data.longitude);
-    const satAltKm = Number(data.altitude);
-    if (Number.isNaN(satLat) || Number.isNaN(satLng)) return null;
-
-    const elev = satelliteElevationDeg(
-      latitude, longitude,
-      satLat, satLng,
-      Number.isNaN(satAltKm) ? 420 : satAltKm,
-    );
-
-    return elev >= minAltitude ? 'ISS' : null;
-  } catch {
-    return null;
-  }
-}
-
 // ── Main exports ──────────────────────────────────────────────────────────────
 
 export type SightingAnalysis = {
   status: string;
   matchedFlight: string | null;
   matchedCelestial: string | null;
+  matchedSatellite: string | null;
 };
 
 export async function computeSightingAnalysis(
@@ -300,6 +249,7 @@ export async function computeSightingAnalysis(
     let status = 'unexplained';
     let matchedFlight: string | null = null;
     let matchedCelestial: string | null = null;
+    let matchedSatellite: string | null = null;
 
     // Check live flight data if sighting was recent (within 2 hours).
     if (ageMinutes < 120) {
@@ -335,14 +285,23 @@ export async function computeSightingAnalysis(
         const minAlt = 20;
         matchedCelestial =
           (await checkPlanetMatch(latitude, longitude, sightingTime, minAlt)) ??
-          checkStarMatch(latitude, longitude, sightingTime, minAlt) ??
-          (await checkSatelliteMatch(latitude, longitude, 10));
+          checkStarMatch(latitude, longitude, sightingTime, minAlt);
 
-        if (matchedCelestial) status = 'explained';
+        if (matchedCelestial) {
+          status = 'explained';
+        } else {
+          matchedSatellite = await findBestSatelliteMatch(
+            latitude,
+            longitude,
+            sightingTime,
+            10,
+          );
+          if (matchedSatellite) status = 'explained';
+        }
       }
     }
 
-    return { status, matchedFlight, matchedCelestial };
+    return { status, matchedFlight, matchedCelestial, matchedSatellite };
   } catch (err) {
     console.warn('Analysis failed:', err);
     return null;
@@ -360,11 +319,16 @@ export async function analyzeSighting(
   const analysis = await computeSightingAnalysis(latitude, longitude, sightedAt);
   if (!analysis) return null;
 
-  const { status, matchedFlight, matchedCelestial } = analysis;
+  const { status, matchedFlight, matchedCelestial, matchedSatellite } = analysis;
 
   const { error: updateError } = await supabase
     .from('sightings')
-    .update({ status, matched_flight: matchedFlight, matched_celestial: matchedCelestial })
+    .update({
+      status,
+      matched_flight: matchedFlight,
+      matched_celestial: matchedCelestial,
+      matched_satellite: matchedSatellite,
+    })
     .eq('id', sightingId);
 
   if (updateError) {
@@ -373,6 +337,6 @@ export async function analyzeSighting(
     console.log('Sighting updated successfully:', sightingId, status);
   }
 
-  console.log('Analysis complete:', { sightingId, status, matchedFlight, matchedCelestial });
+  console.log('Analysis complete:', { sightingId, status, matchedFlight, matchedCelestial, matchedSatellite });
   return analysis;
 }

@@ -38,6 +38,7 @@ export default function StepFiveReview() {
     const status = analysis?.status ?? "pending";
     const matchedFlight = analysis?.matchedFlight ?? null;
     const matchedCelestial = analysis?.matchedCelestial ?? null;
+    const matchedSatellite = analysis?.matchedSatellite ?? null;
 
     let photoUrls: string[] = [];
     if (form.photoUris.length > 0) {
@@ -68,6 +69,7 @@ export default function StepFiveReview() {
       status,
       matched_flight: matchedFlight,
       matched_celestial: matchedCelestial,
+      matched_satellite: matchedSatellite,
     });
 
     if (error) {
@@ -81,7 +83,7 @@ export default function StepFiveReview() {
     setLoading(false);
     router.replace({
       pathname: "/report/result" as any,
-      params: { status, matchedFlight, matchedCelestial },
+      params: { status, matchedFlight, matchedCelestial, matchedSatellite },
     });
   }
 
