@@ -283,15 +283,17 @@ export default function MapboxMapBase({
     }
 
     celestialMarkersRef.current.forEach((marker) => marker.remove());
-    celestialMarkersRef.current = bodies.map((body) => {
-      const [lng, lat] = celestialBodyEarthCoordinate(body);
-      return new mapboxgl.Marker({
-        element: createCelestialMarkerElement(body),
-        anchor: "center",
-      })
-        .setLngLat([lng, lat])
-        .addTo(map);
-    });
+    celestialMarkersRef.current = bodies
+      .filter((body) => isFinite(body.earthLongitude) && isFinite(body.earthLatitude))
+      .map((body) => {
+        const [lng, lat] = celestialBodyEarthCoordinate(body);
+        return new mapboxgl.Marker({
+          element: createCelestialMarkerElement(body),
+          anchor: "center",
+        })
+          .setLngLat([lng, lat])
+          .addTo(map);
+      });
     celestialBodyIdsRef.current = bodyIds;
   }, []);
 

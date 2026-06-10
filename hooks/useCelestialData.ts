@@ -95,6 +95,7 @@ function tleSatPosition(
     const lat = Math.atan2(ze, Math.sqrt(xe * xe + ye * ye)) * 180 / Math.PI;
     const altKm = Math.sqrt(x * x + y * y + z * z) - 6_371;
 
+    if (!isFinite(lat) || !isFinite(lng) || !isFinite(altKm)) return null;
     return { lat, lng, altKm };
   } catch {
     return null;
