@@ -24,7 +24,7 @@ export default function MapScreen() {
   // Minneapolis center coordinates
   const MAP_CENTER = { latitude: 44.9778, longitude: -93.265 };
 
-  const { flights, flightTrails, error } = useNearbyFlights(
+  const { flights, flightTrails, error, usingMock, usingCached } = useNearbyFlights(
     MAP_CENTER.latitude,
     MAP_CENTER.longitude,
     100,
@@ -115,12 +115,21 @@ export default function MapScreen() {
         </View>
       ) : null}
 
-      {filters.showFlightPaths && !error && flights.length === 0 ? (
+      {filters.showFlightPaths && usingMock ? (
+        <View style={styles.flightDemo}>
+          <Text style={styles.flightDemoText}>Demo flight data</Text>
+        </View>
+      ) : null}
+
+      {filters.showFlightPaths && usingCached && !usingMock ? (
+        <View style={styles.flightCached}>
+          <Text style={styles.flightCachedText}>Saved flight data</Text>
+        </View>
+      ) : null}
+
+      {filters.showFlightPaths && !error && !usingMock && !usingCached && flights.length === 0 ? (
         <View style={styles.flightError}>
-          <Text style={styles.flightErrorText}>
-            Loading aircraft… If this persists, OpenSky may be rate-limiting —
-            wait a few minutes and refresh.
-          </Text>
+          <Text style={styles.flightErrorText}>Loading aircraft…</Text>
         </View>
       ) : null}
 
@@ -276,6 +285,42 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.mono,
     fontSize: 9,
     color: Colors.yellow,
+    letterSpacing: 0.5,
+    lineHeight: 14,
+  },
+  flightDemo: {
+    position: "absolute",
+    top: 80,
+    left: 16,
+    maxWidth: "60%",
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(20,20,20,0.92)",
+    borderWidth: 2,
+    borderColor: Colors.green,
+    padding: 8,
+  },
+  flightDemoText: {
+    fontFamily: Fonts.mono,
+    fontSize: 9,
+    color: Colors.green,
+    letterSpacing: 0.5,
+    lineHeight: 14,
+  },
+  flightCached: {
+    position: "absolute",
+    top: 80,
+    left: 16,
+    maxWidth: "60%",
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(20,20,20,0.92)",
+    borderWidth: 2,
+    borderColor: Colors.blue,
+    padding: 8,
+  },
+  flightCachedText: {
+    fontFamily: Fonts.mono,
+    fontSize: 9,
+    color: Colors.blue,
     letterSpacing: 0.5,
     lineHeight: 14,
   },
