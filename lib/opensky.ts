@@ -56,7 +56,14 @@ export type FlightsInAreaResult = {
 };
 
 function shouldFallbackToMockFlights(status: number): boolean {
-  return status === 429 || status === 504 || status === 502 || status === 403 || status === 0;
+  return (
+    status === 429 ||
+    status === 504 ||
+    status === 502 ||
+    status === 500 ||
+    status === 403 ||
+    status === 0
+  );
 }
 
 async function mockOrCachedFlightsResult(
