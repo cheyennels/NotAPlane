@@ -8,8 +8,10 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "export:web": "expo export -p web",
-    "vercel-build": "expo export -p web",
     "lint": "expo lint"
+  },
+  "engines": {
+    "node": ">=20.18.0"
   },
   "dependencies": {
     "@expo-google-fonts/space-mono": "^0.4.2",

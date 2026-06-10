@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run vercel-build",
+  "buildCommand": "npx expo export -p web",
   "installCommand": "npm install",
   "outputDirectory": "dist/client",
   "framework": null,
