@@ -1,10 +1,12 @@
 import { Fonts } from "@/constants/fonts";
+import WebPhoneFrame from "@/components/ui/WebPhoneFrame";
 import { SpaceMono_400Regular } from "@expo-google-fonts/space-mono";
 import { Session } from "@supabase/supabase-js";
 import { useFonts } from "expo-font";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
+import { Platform } from "react-native";
 import "react-native-reanimated";
 import "react-native-url-polyfill/auto";
 import { supabase } from "../lib/supabase";
@@ -68,11 +70,17 @@ export default function RootLayout() {
     return null;
   }
 
-  return (
+  const stack = (
     <Stack>
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="report" options={{ headerShown: false }} />
     </Stack>
   );
+
+  if (Platform.OS === "web") {
+    return <WebPhoneFrame>{stack}</WebPhoneFrame>;
+  }
+
+  return stack;
 }
