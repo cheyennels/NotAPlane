@@ -109,10 +109,17 @@ export default function FilterScreen() {
         />
         <ToggleRow
           label="Celestial Bodies"
-          sublabel="Stars, planets, ISS"
+          sublabel="Stars and planets"
           color={Colors.white}
           value={filters.showCelestial}
           onToggle={() => toggleFilter("showCelestial")}
+        />
+        <ToggleRow
+          label="Satellites"
+          sublabel="Live ISS position"
+          color="#FF69B4"
+          value={filters.showSatellites}
+          onToggle={() => toggleFilter("showSatellites")}
         />
 
         {/* Time range */}

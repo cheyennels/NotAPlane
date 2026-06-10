@@ -7,6 +7,7 @@ export type MapFilters = {
   showPending: boolean;
   showFlightPaths: boolean;
   showCelestial: boolean;
+  showSatellites: boolean;
   timeRange: "week" | "all";
 };
 
@@ -17,6 +18,7 @@ export const DEFAULT_FILTERS: MapFilters = {
   showPending: true,
   showFlightPaths: false,
   showCelestial: false,
+  showSatellites: false,
   timeRange: "all",
 };
 

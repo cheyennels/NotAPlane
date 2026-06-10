@@ -31,11 +31,17 @@ export default function MapScreen() {
     filters.showFlightPaths,
   );
 
-  const { bodies: celestialBodies } = useNearbyCelestial(
+  const { bodies: celestialBodies, iss } = useNearbyCelestial(
     MAP_CENTER.latitude,
     MAP_CENTER.longitude,
     filters.showCelestial,
+    filters.showSatellites,
   );
+
+  const visibleCelestial = [
+    ...(filters.showCelestial ? celestialBodies : []),
+    ...(filters.showSatellites && iss ? [iss] : []),
+  ];
 
   // Fetch all sightings from Supabase
   useEffect(() => {
@@ -83,7 +89,7 @@ export default function MapScreen() {
     },
     filters.showCelestial && { label: "Planets", color: "#FFA500" },
     filters.showCelestial && { label: "Stars", color: "#FFFFFF" },
-    filters.showCelestial && { label: "ISS", color: "#FF69B4" },
+    filters.showSatellites && { label: "Satellites", color: "#FF69B4" },
   ].filter(Boolean) as { label: string; color: string; icon?: string }[];
 
   return (
@@ -93,7 +99,7 @@ export default function MapScreen() {
         sightings={sightings}
         flights={filters.showFlightPaths ? flights : []}
         flightTrails={filters.showFlightPaths ? flightTrails : []}
-        celestialBodies={filters.showCelestial ? celestialBodies : []}
+        celestialBodies={visibleCelestial}
         centerLatitude={MAP_CENTER.latitude}
         centerLongitude={MAP_CENTER.longitude}
         onZoomChange={setMapZoom}
@@ -101,11 +107,9 @@ export default function MapScreen() {
           router.push(`/(tabs)/map/sighting/${id}` as any)
         }
       />
-      {filters.showCelestial &&
-        celestialBodies.length > 0 &&
-        mapZoom >= CELESTIAL_REFERENCE_ZOOM && (
+      {visibleCelestial.length > 0 && mapZoom >= CELESTIAL_REFERENCE_ZOOM && (
         <View style={styles.skyCompass}>
-          <SkyCompass bodies={celestialBodies.filter((b) => b.altitude > 5)} />
+          <SkyCompass bodies={visibleCelestial.filter((b) => b.altitude > 5)} />
         </View>
       )}
 
@@ -140,7 +144,8 @@ export default function MapScreen() {
         !filters.showPending ||
         filters.timeRange === "week" ||
         filters.showFlightPaths ||
-        filters.showCelestial) && (
+        filters.showCelestial ||
+        filters.showSatellites) && (
         <View style={styles.filterActive}>
           <Text style={styles.filterActiveText}>● Filters Active</Text>
         </View>

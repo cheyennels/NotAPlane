@@ -147,7 +147,8 @@ function satelliteLookAngles(
 export function useNearbyCelestial(
   latitude: number,
   longitude: number,
-  enabled: boolean = true,
+  enabledBodies: boolean = true,
+  enabledSatellites: boolean = true,
 ) {
   const [bodies, setBodies] = useState<CelestialBody[]>([]);
   const [iss, setIss] = useState<CelestialBody | null>(null);
@@ -155,7 +156,7 @@ export function useNearbyCelestial(
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!enabled || !latitude || !longitude) return;
+    if (!enabledBodies || !latitude || !longitude) return;
 
     const appId = process.env.EXPO_PUBLIC_ASTRONOMY_APP_ID;
     const appSecret = process.env.EXPO_PUBLIC_ASTRONOMY_APP_SECRET;
@@ -270,10 +271,10 @@ export function useNearbyCelestial(
     fetchBodies();
     const interval = setInterval(fetchBodies, CELESTIAL_REFRESH_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [latitude, longitude, enabled]);
+  }, [latitude, longitude, enabledBodies]);
 
   useEffect(() => {
-    if (!enabled || !latitude || !longitude) {
+    if (!enabledSatellites || !latitude || !longitude) {
       setIss(null);
       return;
     }
@@ -317,7 +318,7 @@ export function useNearbyCelestial(
     fetchIss();
     const interval = setInterval(fetchIss, ISS_REFRESH_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [latitude, longitude, enabled]);
+  }, [latitude, longitude, enabledSatellites]);
 
-  return { bodies: iss ? [...bodies, iss] : bodies, loading, error };
+  return { bodies, iss, loading, error };
 }
