@@ -376,8 +376,14 @@ export default function MapboxMapBase({
       map.on("zoomend", syncCelestialMarkers);
       mapReadyRef.current = true;
       setMapReady(true);
+      map.resize();
       syncCelestialMarkers();
     });
+
+    const resizeObserver = new ResizeObserver(() => {
+      map.resize();
+    });
+    resizeObserver.observe(container);
 
     const observer = new MutationObserver(hide);
     observer.observe(container, { childList: true, subtree: true });
@@ -386,6 +392,7 @@ export default function MapboxMapBase({
     mapRef.current = map;
 
     return () => {
+      resizeObserver.disconnect();
       observer.disconnect();
       map.off("mouseenter", FLIGHTS_LAYER_ID, onMouseEnter);
       map.off("mouseleave", FLIGHTS_LAYER_ID, onMouseLeave);

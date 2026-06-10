@@ -1,5 +1,6 @@
 import { Fonts } from "@/constants/fonts";
 import WebPhoneFrame from "@/components/ui/WebPhoneFrame";
+import { Colors } from "@/constants/colors";
 import { SpaceMono_400Regular } from "@expo-google-fonts/space-mono";
 import { Session } from "@supabase/supabase-js";
 import { useFonts } from "expo-font";
@@ -71,10 +72,15 @@ export default function RootLayout() {
   }
 
   const stack = (
-    <Stack>
-      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="report" options={{ headerShown: false }} />
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { flex: 1, backgroundColor: Colors.black },
+      }}
+    >
+      <Stack.Screen name="(auth)" />
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="report" />
     </Stack>
   );
 

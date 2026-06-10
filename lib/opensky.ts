@@ -7,6 +7,11 @@ import {
   writeFlightCache,
 } from "./flightCache";
 import {
+  readFlightTrackCache,
+  writeFlightTrackCache,
+} from "./flightTrackCache";
+import { estimateFlightTrail } from "./flightTrailEstimate";
+import {
   getMockFlightPath,
   getMockFlightsInArea,
   isMockFlightsActive,
@@ -183,7 +188,14 @@ export async function getFlightsInArea(
 export async function getFlightPath(
   icao24: string,
   trackTime = 0,
-): Promise<{ coordinates: [number, number][]; status: number; mock?: boolean }> {
+  flight?: OpenSkyFlight,
+): Promise<{
+  coordinates: [number, number][];
+  status: number;
+  mock?: boolean;
+  estimated?: boolean;
+  cached?: boolean;
+}> {
   const id = icao24.toLowerCase();
 
   if (isMockFlightsForced()) {
@@ -191,6 +203,20 @@ export async function getFlightPath(
     if (mockPath) {
       return { coordinates: mockPath, status: 200, mock: true };
     }
+  }
+
+  const cachedTrack = await readFlightTrackCache(id);
+  if (
+    cachedTrack &&
+    cachedTrack.coordinates.length >= 2 &&
+    cachedTrack.source !== "estimated"
+  ) {
+    return {
+      coordinates: cachedTrack.coordinates,
+      status: 200,
+      mock: cachedTrack.source === "mock",
+      cached: true,
+    };
   }
 
   async function fetchTrack(time: number) {
@@ -215,19 +241,34 @@ export async function getFlightPath(
   }
 
   try {
-    let result = await fetchTrack(trackTime);
-    if (result.coordinates.length === 0 && trackTime !== 0) {
-      result = await fetchTrack(0);
+    // Prefer the live track snapshot; fall back to last_contact if needed.
+    let result = await fetchTrack(0);
+    if (result.coordinates.length < 2 && trackTime !== 0) {
+      result = await fetchTrack(trackTime);
     }
 
     if (result.coordinates.length >= 2) {
+      await writeFlightTrackCache(id, result.coordinates, "opensky");
       return result;
     }
 
     if (isMockFlightsActive()) {
       const mockPath = getMockFlightPath(id);
       if (mockPath) {
+        await writeFlightTrackCache(id, mockPath, "mock");
         return { coordinates: mockPath, status: 200, mock: true };
+      }
+    }
+
+    if (flight) {
+      const estimated = estimateFlightTrail(flight);
+      if (estimated.length >= 2) {
+        await writeFlightTrackCache(id, estimated, "estimated");
+        return {
+          coordinates: estimated,
+          status: result.status || 200,
+          estimated: true,
+        };
       }
     }
 
@@ -237,7 +278,15 @@ export async function getFlightPath(
     if (isMockFlightsActive()) {
       const mockPath = getMockFlightPath(id);
       if (mockPath) {
+        await writeFlightTrackCache(id, mockPath, "mock");
         return { coordinates: mockPath, status: 200, mock: true };
+      }
+    }
+    if (flight) {
+      const estimated = estimateFlightTrail(flight);
+      if (estimated.length >= 2) {
+        await writeFlightTrackCache(id, estimated, "estimated");
+        return { coordinates: estimated, status: 0, estimated: true };
       }
     }
     return { coordinates: [], status: 0 };

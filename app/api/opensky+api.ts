@@ -7,6 +7,7 @@ const ALLOWED_TLE_GROUPS = new Set(["visual", "stations", "starlink", "active"])
 const STATES_CACHE_TTL_MS = 25_000;
 const STATES_STALE_MAX_MS = 300_000;
 const TRACK_CACHE_TTL_MS = 1_800_000;
+const TRACK_STALE_MAX_MS = 7_200_000;
 
 type CacheEntry = { body: unknown; fetchedAt: number };
 
@@ -132,10 +133,14 @@ async function fetchStatesCached(
   return request;
 }
 
-function getCachedTrack(icao24: string): unknown | null {
+function getCachedTrack(icao24: string, allowStale = false): unknown | null {
   const entry = trackCache.get(icao24.toLowerCase());
   if (!entry) return null;
-  if (Date.now() - entry.fetchedAt <= TRACK_CACHE_TTL_MS) return entry.body;
+
+  const age = Date.now() - entry.fetchedAt;
+  if (age <= TRACK_CACHE_TTL_MS) return entry.body;
+  if (allowStale && age <= TRACK_STALE_MAX_MS) return entry.body;
+
   trackCache.delete(icao24.toLowerCase());
   return null;
 }
@@ -154,6 +159,14 @@ async function fetchTrackCached(icao24: string, time: string): Promise<Response>
   if (response.ok) {
     const body = await response.clone().json();
     trackCache.set(id, { body, fetchedAt: Date.now() });
+    return response;
+  }
+
+  if (response.status === 429) {
+    const stale = getCachedTrack(id, true);
+    if (stale) {
+      return Response.json(stale, { headers: { "X-OpenSky-Stale": "true" } });
+    }
   }
 
   return response;

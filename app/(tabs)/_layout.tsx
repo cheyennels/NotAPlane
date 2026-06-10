@@ -1,5 +1,6 @@
 import { Tabs } from "expo-router";
 import { Image, StyleSheet } from "react-native";
+import { Colors } from "@/constants/colors";
 import { FilterProvider } from "../../context/FilterContext";
 
 export default function TabLayout() {
@@ -8,6 +9,7 @@ export default function TabLayout() {
       <Tabs
         screenOptions={{
           headerShown: false,
+          sceneStyle: { flex: 1, backgroundColor: Colors.black },
           tabBarStyle: styles.tabBar,
           tabBarActiveTintColor: "#39FF14",
           tabBarInactiveTintColor: "#6B6B6B",

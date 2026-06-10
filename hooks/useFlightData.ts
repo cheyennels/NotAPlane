@@ -4,6 +4,7 @@ import {
   FlightTrail,
 } from "../components/map/flightsGeoJson";
 import { flightCacheKey, readFlightCache } from "../lib/flightCache";
+import { estimateFlightTrail } from "../lib/flightTrailEstimate";
 import { getMockFlightPath, getMockFlightsInArea, isMockFlightsActive } from "../lib/mockFlights";
 import {
   getBoundingBox,
@@ -17,15 +18,15 @@ import {
 const FLIGHT_REFRESH_INTERVAL_MS = 10_000;
 const STATES_BACKOFF_BASE_MS = 60_000;
 const STATES_BACKOFF_MAX_MS = 600_000;
-const TRACK_FETCH_INTERVAL_MS = 45_000;
+const TRACK_FETCH_INTERVAL_MS = 30_000;
 const TRACK_REFRESH_MS = 300_000;
 const TRACK_BACKOFF_MS = 300_000;
-const TRACK_RETRY_MS = 30_000;
+const TRACK_RETRY_MS = 15_000;
 const TRACK_SESSION_TTL_MS = 1_800_000;
 const TRACK_SESSION_PREFIX = "notaplane-track:";
-const TRACK_FETCH_CONCURRENCY = 2;
+const TRACK_FETCH_CONCURRENCY = 4;
 
-type TrailSource = "opensky" | "mock" | "accumulated";
+type TrailSource = "opensky" | "mock" | "estimated";
 
 type HistoricalPathEntry = {
   coordinates: [number, number][];
@@ -59,7 +60,7 @@ function readSessionTrack(icao24: string): HistoricalPathEntry | null {
 
     return {
       coordinates: parsed.coordinates,
-      source: parsed.source ?? "accumulated",
+      source: parsed.source ?? "estimated",
       fetchedAt: parsed.fetchedAt,
     };
   } catch {
@@ -69,7 +70,6 @@ function readSessionTrack(icao24: string): HistoricalPathEntry | null {
 
 function writeSessionTrack(entry: HistoricalPathEntry, icao24: string) {
   if (typeof sessionStorage === "undefined") return;
-  if (entry.source === "accumulated") return;
 
   try {
     sessionStorage.setItem(
@@ -103,22 +103,15 @@ function buildFlightTrails(
     .filter((trail): trail is FlightTrail => trail !== null);
 }
 
-function appendCurrentPosition(
+/** Extend known full tracks (OpenSky/mock) with the latest live position. */
+function extendLivePositions(
   flights: OpenSkyFlight[],
   historicalPaths: Map<string, HistoricalPathEntry>,
 ) {
   for (const flight of flights) {
     const id = normalizeIcao(flight.icao24);
     const existing = historicalPaths.get(id);
-
-    if (!existing) {
-      historicalPaths.set(id, {
-        coordinates: [[flight.longitude, flight.latitude]],
-        source: "accumulated",
-        fetchedAt: Date.now(),
-      });
-      continue;
-    }
+    if (!existing || existing.source === "estimated") continue;
 
     historicalPaths.set(id, {
       ...existing,
@@ -144,8 +137,7 @@ function pickPendingTrackFlights(
       return true;
     }
 
-    const retryInterval = TRACK_RETRY_MS;
-    if (now - lastAttempt < retryInterval) return false;
+    if (now - lastAttempt < TRACK_RETRY_MS) return false;
     return true;
   });
 }
@@ -173,6 +165,38 @@ function hydrateHistoricalPaths(
           fetchedAt: Date.now(),
         });
       }
+      continue;
+    }
+
+    const estimated = estimateFlightTrail(flight);
+    if (estimated.length >= 2) {
+      historicalPaths.set(id, {
+        coordinates: estimated,
+        source: "estimated",
+        fetchedAt: Date.now(),
+      });
+    }
+  }
+}
+
+function refreshEstimatedPaths(
+  flights: OpenSkyFlight[],
+  historicalPaths: Map<string, HistoricalPathEntry>,
+) {
+  if (isMockFlightsActive()) return;
+
+  for (const flight of flights) {
+    const id = normalizeIcao(flight.icao24);
+    const existing = historicalPaths.get(id);
+    if (existing?.source !== "estimated") continue;
+
+    const estimated = estimateFlightTrail(flight);
+    if (estimated.length >= 2) {
+      historicalPaths.set(id, {
+        coordinates: estimated,
+        source: "estimated",
+        fetchedAt: existing.fetchedAt,
+      });
     }
   }
 }
@@ -244,10 +268,20 @@ export function useNearbyFlights(
     function syncTrails(nextFlights: OpenSkyFlight[]) {
       flightsRef.current = nextFlights;
       refreshMockPaths(nextFlights, historicalPathsRef.current);
-      appendCurrentPosition(nextFlights, historicalPathsRef.current);
+      refreshEstimatedPaths(nextFlights, historicalPathsRef.current);
+      extendLivePositions(nextFlights, historicalPathsRef.current);
       setFlightTrails(
         buildFlightTrails(nextFlights, historicalPathsRef.current),
       );
+    }
+
+    function trailSourceFromResult(result: {
+      mock?: boolean;
+      estimated?: boolean;
+    }): TrailSource {
+      if (result.mock) return "mock";
+      if (result.estimated) return "estimated";
+      return "opensky";
     }
 
     function storeHistoricalPath(
@@ -297,7 +331,7 @@ export function useNearbyFlights(
               const id = normalizeIcao(flight.icao24);
               const trackTime =
                 flight.last_contact > 0 ? flight.last_contact : 0;
-              const result = await getFlightPath(id, trackTime);
+              const result = await getFlightPath(id, trackTime, flight);
               return { id, result };
             }),
           );
@@ -305,16 +339,19 @@ export function useNearbyFlights(
           for (const { id, result } of results) {
             trackAttemptedAtRef.current.set(id, Date.now());
 
-            if (result.status === 429) {
+            if (result.status === 429 && result.coordinates.length < 2) {
               trackBackoffUntilRef.current = Date.now() + TRACK_BACKOFF_MS;
-              return;
+              continue;
             }
 
             if (result.coordinates.length >= 2) {
+              if (result.status === 429) {
+                trackBackoffUntilRef.current = Date.now() + TRACK_BACKOFF_MS;
+              }
               storeHistoricalPath(
                 id,
                 result.coordinates,
-                result.mock ? "mock" : "opensky",
+                trailSourceFromResult(result),
               );
             }
           }
@@ -393,7 +430,7 @@ export function useNearbyFlights(
         hydrateHistoricalPaths(data, historicalPathsRef.current);
         setFlights(data);
         syncTrails(data);
-        void fetchAllHistoricalPaths();
+        await fetchAllHistoricalPaths();
       } catch {
         if (!isCancelled()) setError("Failed to load flight data");
       } finally {
@@ -415,6 +452,7 @@ export function useNearbyFlights(
       hydrateHistoricalPaths(cached.flights, historicalPathsRef.current);
       setFlights(cached.flights);
       syncTrails(cached.flights);
+      void fetchAllHistoricalPaths();
     }
 
     void loadCachedSnapshot();

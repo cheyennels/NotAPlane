@@ -43,7 +43,7 @@ export default function WebPhoneFrame({ children }: WebPhoneFrameProps) {
         <View style={styles.bezel}>
           <View style={styles.notch} />
           <View style={styles.screen}>
-            <View style={styles.screenInner}>{children}</View>
+            <View style={styles.appRoot}>{children}</View>
           </View>
           <View style={styles.homeIndicator} />
         </View>
@@ -115,11 +115,15 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     overflow: "hidden",
     backgroundColor: Colors.surface,
+    position: "relative",
   },
-  screenInner: {
-    flex: 1,
-    width: "100%",
-    height: "100%",
+  appRoot: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: PHONE_WIDTH,
+    height: PHONE_HEIGHT,
+    overflow: "hidden",
   },
   homeIndicator: {
     width: 120,
