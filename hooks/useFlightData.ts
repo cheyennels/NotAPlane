@@ -15,7 +15,8 @@ import {
 // Poll the map every 10s; the /api/opensky route caches responses for 25s so
 // OpenSky typically sees one request per ~30s, not every poll.
 const FLIGHT_REFRESH_INTERVAL_MS = 10_000;
-const STATES_BACKOFF_MS = 60_000;
+const STATES_BACKOFF_BASE_MS = 60_000;
+const STATES_BACKOFF_MAX_MS = 600_000;
 const TRACK_FETCH_INTERVAL_MS = 45_000;
 const TRACK_REFRESH_MS = 300_000;
 const TRACK_BACKOFF_MS = 300_000;
@@ -210,6 +211,7 @@ export function useNearbyFlights(
   const historicalPathsRef = useRef<Map<string, HistoricalPathEntry>>(new Map());
   const trackAttemptedAtRef = useRef<Map<string, number>>(new Map());
   const statesBackoffUntilRef = useRef(0);
+  const statesBackoffCountRef = useRef(0);
   const trackBackoffUntilRef = useRef(0);
   const trackFetchInFlightRef = useRef(false);
   const flightsRef = useRef<OpenSkyFlight[]>([]);
@@ -220,6 +222,7 @@ export function useNearbyFlights(
       historicalPathsRef.current = new Map();
       trackAttemptedAtRef.current = new Map();
       statesBackoffUntilRef.current = 0;
+      statesBackoffCountRef.current = 0;
       trackBackoffUntilRef.current = 0;
       trackFetchInFlightRef.current = false;
       flightsRef.current = [];
@@ -358,7 +361,16 @@ export function useNearbyFlights(
           setUsingCached(false);
           setError(null);
           if (rateLimited) {
-            statesBackoffUntilRef.current = now + STATES_BACKOFF_MS;
+            const count = statesBackoffCountRef.current;
+            const backoff = Math.min(
+              STATES_BACKOFF_BASE_MS * Math.pow(2, count),
+              STATES_BACKOFF_MAX_MS,
+            );
+            statesBackoffUntilRef.current = now + backoff;
+            statesBackoffCountRef.current = count + 1;
+            console.info(
+              `OpenSky rate limited — retrying in ${Math.round(backoff / 1000)}s (attempt ${count + 1})`,
+            );
           }
           hydrateHistoricalPaths(data, historicalPathsRef.current);
           setFlights(data);
@@ -366,6 +378,8 @@ export function useNearbyFlights(
           return;
         }
 
+        // Successful real response — reset backoff streak.
+        statesBackoffCountRef.current = 0;
         usingMockRef.current = false;
         setUsingMock(false);
         setUsingCached(Boolean(cached));

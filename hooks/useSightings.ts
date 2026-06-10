@@ -19,6 +19,7 @@ export type Sighting = {
   matched_flight: string | null;
   matched_celestial: string | null;
   created_at: string;
+  corroborations: number;
 };
 
 export function useSightings() {
@@ -39,9 +40,30 @@ export function useSightings() {
 
     if (error) {
       setError(error.message);
-    } else {
-      setSightings(data || []);
+      setLoading(false);
+      return;
     }
+
+    const rows = data || [];
+
+    if (rows.length === 0) {
+      setSightings([]);
+      setLoading(false);
+      return;
+    }
+
+    const ids = rows.map((s) => s.id);
+    const { data: corrobRows } = await supabase
+      .from("corroborations")
+      .select("sighting_id")
+      .in("sighting_id", ids);
+
+    const counts: Record<string, number> = {};
+    for (const row of corrobRows || []) {
+      counts[row.sighting_id] = (counts[row.sighting_id] ?? 0) + 1;
+    }
+
+    setSightings(rows.map((s) => ({ ...s, corroborations: counts[s.id] ?? 0 })));
     setLoading(false);
   }
 

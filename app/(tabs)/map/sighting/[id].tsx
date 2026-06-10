@@ -10,16 +10,20 @@ import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Image,
+  Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { supabase } from "../../../../lib/supabase";
 
 type Sighting = {
   id: string;
+  user_id: string;
   sighted_at: string;
   duration: string;
   latitude: number;
@@ -45,9 +49,15 @@ export default function SightingDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [corroborated, setCorroborated] = useState(false);
   const [corroborationCount, setCorroborationCount] = useState(0);
+  const [isOwnReport, setIsOwnReport] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchSighting() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       const { data, error } = await supabase
         .from("sightings")
         .select("*")
@@ -59,6 +69,7 @@ export default function SightingDetailScreen() {
         router.back();
       } else {
         setSighting(data);
+        setIsOwnReport(Boolean(user && data.user_id === user.id));
       }
       setLoading(false);
     }
@@ -74,15 +85,15 @@ export default function SightingDetailScreen() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (user) {
-        const { data } = await supabase
-          .from("corroborations")
-          .select("id")
-          .eq("sighting_id", id)
-          .eq("user_id", user.id)
-          .single();
-        setCorroborated(!!data);
-      }
+      if (!user) return;
+
+      const { data } = await supabase
+        .from("corroborations")
+        .select("id")
+        .eq("sighting_id", id)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      setCorroborated(!!data);
     }
 
     fetchSighting();
@@ -90,6 +101,8 @@ export default function SightingDetailScreen() {
   }, [id]);
 
   async function handleCorroborate() {
+    if (isOwnReport) return;
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -125,6 +138,12 @@ export default function SightingDetailScreen() {
       : "NO FLIGHTS OR CELESTIAL BODIES";
 
   const statusColor = getStatusColor(sighting.status);
+
+  const corroborateLabel = isOwnReport
+    ? `Your Report${corroborationCount > 0 ? ` · ${corroborationCount} corroborations` : ""}`
+    : corroborated
+      ? `✓ Corroborated · ${corroborationCount}`
+      : `Corroborate Report${corroborationCount > 0 ? ` · ${corroborationCount}` : ""}`;
 
   return (
     <View style={styles.container}>
@@ -189,25 +208,43 @@ export default function SightingDetailScreen() {
         {sighting.photo_urls?.length > 0 && (
           <View style={styles.photoGrid}>
             {sighting.photo_urls.map((url, index) => (
-              <Image
-                key={index}
-                source={{ uri: url }}
-                style={styles.photo}
-                resizeMode="cover"
-              />
+              <TouchableOpacity key={index} onPress={() => setLightboxUrl(url)} activeOpacity={0.8}>
+                <Image source={{ uri: url }} style={styles.photo} resizeMode="cover" />
+              </TouchableOpacity>
             ))}
           </View>
         )}
+
+        {/* Lightbox */}
+        <Modal
+          visible={lightboxUrl !== null}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setLightboxUrl(null)}
+          statusBarTranslucent
+        >
+          <Pressable style={styles.lightboxBackdrop} onPress={() => setLightboxUrl(null)}>
+            <Pressable onPress={() => {}} style={styles.lightboxContent}>
+              {lightboxUrl && (
+                <Image
+                  source={{ uri: lightboxUrl }}
+                  style={styles.lightboxImage}
+                  resizeMode="contain"
+                />
+              )}
+            </Pressable>
+            <TouchableOpacity style={styles.lightboxClose} onPress={() => setLightboxUrl(null)}>
+              <Text style={styles.lightboxCloseText}>✕</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Modal>
       </ScrollView>
 
       <BottomActionBar style={styles.bottomBar}>
         <Button
-          label={
-            corroborated
-              ? `✓ Corroborated · ${corroborationCount}`
-              : `Corroborate Report${corroborationCount > 0 ? ` · ${corroborationCount}` : ""}`
-          }
+          label={corroborateLabel}
           variant={corroborated ? "tint" : "primary"}
+          disabled={isOwnReport}
           onPress={handleCorroborate}
         />
         <Button label="Close" variant="outline" onPress={() => router.back()} />
@@ -357,5 +394,38 @@ const styles = StyleSheet.create({
   },
   bottomBar: {
     paddingBottom: 16,
+  },
+  lightboxBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.95)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  lightboxContent: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  lightboxImage: {
+    width: "100%",
+    height: "100%",
+  },
+  lightboxClose: {
+    position: "absolute",
+    top: 52,
+    right: 20,
+    width: 36,
+    height: 36,
+    backgroundColor: "rgba(30,30,30,0.9)",
+    borderWidth: 1,
+    borderColor: Colors.white,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  lightboxCloseText: {
+    fontFamily: Fonts.mono,
+    fontSize: 14,
+    color: Colors.white,
   },
 });

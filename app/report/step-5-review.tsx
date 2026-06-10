@@ -4,6 +4,7 @@ import Button from "@/components/ui/Button";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
 import { computeSightingAnalysis } from "@/lib/analysis";
+import { uploadPhotos } from "@/lib/uploadPhoto";
 import { router } from "expo-router";
 import { useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
@@ -38,6 +39,17 @@ export default function StepFiveReview() {
     const matchedFlight = analysis?.matchedFlight ?? null;
     const matchedCelestial = analysis?.matchedCelestial ?? null;
 
+    let photoUrls: string[] = [];
+    if (form.photoUris.length > 0) {
+      const { urls, error: uploadError } = await uploadPhotos(form.photoUris, user.id);
+      if (uploadError) {
+        Alert.alert("Upload Failed", uploadError);
+        setLoading(false);
+        return;
+      }
+      photoUrls = urls;
+    }
+
     const { error } = await supabase.from("sightings").insert({
       user_id: user.id,
       sighted_at: sightedAt,
@@ -48,7 +60,7 @@ export default function StepFiveReview() {
       shape: form.shape,
       colors: form.colors,
       sound: form.sound,
-      photo_urls: form.photoUris,
+      photo_urls: photoUrls,
       direction: form.direction,
       altitude: form.altitude,
       movement: form.movement,

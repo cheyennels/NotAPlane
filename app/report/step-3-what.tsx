@@ -17,6 +17,7 @@ import {
   View,
 } from "react-native";
 import { useReport } from "../../context/ReportContext";
+import { cachePhotoAsset } from "../../lib/uploadPhoto";
 
 const SHAPES = ["Sphere / Orb", "Cigar", "Disc", "Triangle", "Unknown / Other"];
 const SOUNDS = ["Silent", "Humming", "Buzzing", "Loud", "Other"];
@@ -73,6 +74,9 @@ export default function StepThreeWhat() {
     });
 
     if (!result.canceled) {
+      for (const asset of result.assets) {
+        await cachePhotoAsset(asset.uri, asset.file as File | undefined);
+      }
       const uris = result.assets.map((a) => a.uri);
       setPhotos((prev) => [...prev, ...uris]);
     }

@@ -106,10 +106,16 @@ async function fetchStatesCached(
       }
 
       if (response.status === 429) {
+        const retryAfter = response.headers.get("Retry-After");
         const stale = getCachedStates(key, true);
         if (stale) {
-          return Response.json(stale);
+          const headers: Record<string, string> = { "X-OpenSky-Stale": "true" };
+          if (retryAfter) headers["Retry-After"] = retryAfter;
+          return Response.json(stale, { headers });
         }
+        const headers: Record<string, string> = {};
+        if (retryAfter) headers["Retry-After"] = retryAfter;
+        return new Response(null, { status: 429, headers });
       }
 
       return response;

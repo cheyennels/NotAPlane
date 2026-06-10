@@ -21,7 +21,7 @@ export default function SightingsScreen() {
     (s) => s.status === "unexplained" || s.status === "pending",
   ).length;
 
-  const corroborations = 0; // will wire up later
+  const corroborations = sightings.reduce((sum, s) => sum + s.corroborations, 0);
 
   if (loading) {
     return <LoadingView />;
@@ -89,7 +89,7 @@ export default function SightingsScreen() {
               {sighting.description || "No description provided."}
             </Text>
 
-            <Text style={styles.corrobLabel}>0 Corroborations</Text>
+            <Text style={styles.corrobLabel}>{sighting.corroborations} Corroboration{sighting.corroborations !== 1 ? "s" : ""}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
