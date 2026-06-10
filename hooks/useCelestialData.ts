@@ -127,6 +127,7 @@ export function useNearbyCelestial(
   const [bodies, setBodies] = useState<CelestialBody[]>([]);
   const [satellites, setSatellites] = useState<CelestialBody[]>([]);
   const [loading, setLoading] = useState(false);
+  const [satellitesLoading, setSatellitesLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -250,31 +251,43 @@ export function useNearbyCelestial(
   useEffect(() => {
     if (!enabledSatellites || !latitude || !longitude) {
       setSatellites([]);
+      setSatellitesLoading(false);
       return;
     }
 
-    async function fetchSatellites() {
-      const now = new Date();
-      const tracked = await getTrackedSatellitePositions(latitude, longitude, now);
+    let cancelled = false;
 
-      setSatellites(
-        tracked.map((sat) => ({
-          id: `sat-${sat.norad}`,
-          name: sat.name,
-          kind: "satellite" as const,
-          altitude: sat.elevation,
-          azimuth: sat.azimuth,
-          magnitude: null,
-          earthLatitude: sat.lat,
-          earthLongitude: sat.lng,
-        })),
-      );
+    async function fetchSatellites() {
+      setSatellitesLoading(true);
+      try {
+        const now = new Date();
+        const tracked = await getTrackedSatellitePositions(latitude, longitude, now);
+        if (cancelled) return;
+
+        setSatellites(
+          tracked.map((sat) => ({
+            id: `sat-${sat.norad}`,
+            name: sat.name,
+            kind: "satellite" as const,
+            altitude: sat.elevation,
+            azimuth: sat.azimuth,
+            magnitude: null,
+            earthLatitude: sat.lat,
+            earthLongitude: sat.lng,
+          })),
+        );
+      } finally {
+        if (!cancelled) setSatellitesLoading(false);
+      }
     }
 
     fetchSatellites();
     const interval = setInterval(fetchSatellites, SATELLITE_REFRESH_INTERVAL_MS);
-    return () => clearInterval(interval);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [latitude, longitude, enabledSatellites]);
 
-  return { bodies, satellites, loading, error };
+  return { bodies, satellites, loading, satellitesLoading, error };
 }

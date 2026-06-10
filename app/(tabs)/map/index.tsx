@@ -31,7 +31,7 @@ export default function MapScreen() {
     filters.showFlightPaths,
   );
 
-  const { bodies: celestialBodies, satellites } = useNearbyCelestial(
+  const { bodies: celestialBodies, satellites, satellitesLoading } = useNearbyCelestial(
     MAP_CENTER.latitude,
     MAP_CENTER.longitude,
     filters.showCelestial,
@@ -92,6 +92,10 @@ export default function MapScreen() {
     filters.showSatellites && { label: "Satellites", color: "#FF69B4" },
   ].filter(Boolean) as { label: string; color: string; icon?: string }[];
 
+  const showFlightStatus =
+    filters.showFlightPaths &&
+    (Boolean(error) || usingMock || usingCached || flights.length === 0);
+
   return (
     <View style={styles.container}>
       <MapboxMap
@@ -134,6 +138,17 @@ export default function MapScreen() {
       {filters.showFlightPaths && !error && !usingMock && !usingCached && flights.length === 0 ? (
         <View style={styles.flightError}>
           <Text style={styles.flightErrorText}>Loading aircraft…</Text>
+        </View>
+      ) : null}
+
+      {filters.showSatellites && satellitesLoading && satellites.length === 0 ? (
+        <View
+          style={[
+            styles.flightError,
+            showFlightStatus ? styles.statusBannerOffset : null,
+          ]}
+        >
+          <Text style={styles.flightErrorText}>Loading satellites…</Text>
         </View>
       ) : null}
 
@@ -285,6 +300,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: Colors.yellow,
     padding: 8,
+  },
+  statusBannerOffset: {
+    top: 116,
   },
   flightErrorText: {
     fontFamily: Fonts.mono,
