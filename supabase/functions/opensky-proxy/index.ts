@@ -1,11 +1,16 @@
 // @ts-nocheck
-const OPENSKY_TIMEOUT_MS = 8_000;
+const OPENSKY_TIMEOUT_MS = 15_000;
+const TOKEN_URL =
+  "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token";
+const TOKEN_REFRESH_MARGIN_MS = 30_000;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, content-type, apikey, x-client-info",
 };
+
+let tokenCache: { token: string; expiresAt: number } | null = null;
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -17,6 +22,50 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
+async function getOpenSkyAuthHeaders(): Promise<Record<string, string>> {
+  const clientId = Deno.env.get("OPENSKY_CLIENT_ID");
+  const clientSecret = Deno.env.get("OPENSKY_CLIENT_SECRET");
+
+  if (clientId && clientSecret) {
+    const now = Date.now();
+    if (tokenCache && now < tokenCache.expiresAt) {
+      return { Authorization: `Bearer ${tokenCache.token}` };
+    }
+
+    const tokenResponse = await fetch(TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "client_credentials",
+        client_id: clientId,
+        client_secret: clientSecret,
+      }),
+    });
+
+    if (tokenResponse.ok) {
+      const data = await tokenResponse.json();
+      if (data.access_token) {
+        const expiresInMs = (data.expires_in ?? 1800) * 1000;
+        tokenCache = {
+          token: data.access_token,
+          expiresAt: Date.now() + expiresInMs - TOKEN_REFRESH_MARGIN_MS,
+        };
+        return { Authorization: `Bearer ${tokenCache.token}` };
+      }
+    }
+  }
+
+  const username = Deno.env.get("OPENSKY_USERNAME");
+  const password = Deno.env.get("OPENSKY_PASSWORD");
+  if (username && password && username !== "your_username") {
+    return {
+      Authorization: `Basic ${btoa(`${username}:${password}`)}`,
+    };
+  }
+
+  return {};
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
@@ -24,7 +73,6 @@ Deno.serve(async (req) => {
 
   const url = new URL(req.url);
 
-  // Health check — verify the function is reachable without calling OpenSky.
   if (url.searchParams.get("ping") === "1") {
     return jsonResponse({ ok: true });
   }
@@ -49,17 +97,12 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Missing bounding box or track params" }, 400);
     }
 
-    const username = Deno.env.get("OPENSKY_USERNAME");
-    const password = Deno.env.get("OPENSKY_PASSWORD");
-
+    const authHeaders = await getOpenSkyAuthHeaders();
     const headers: Record<string, string> = {
       Accept: "application/json",
       "User-Agent": "NotAPlane/1.0 (Supabase Edge)",
+      ...authHeaders,
     };
-
-    if (username && password && username !== "your_username") {
-      headers.Authorization = `Basic ${btoa(`${username}:${password}`)}`;
-    }
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), OPENSKY_TIMEOUT_MS);

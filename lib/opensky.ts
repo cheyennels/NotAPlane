@@ -18,6 +18,7 @@ import {
   isMockFlightsForced,
   setMockFlightsActive,
 } from "./mockFlights";
+import { getOpenSkyAuthHeaders } from "./openskyAuth";
 import { Platform } from "react-native";
 
 export type OpenSkyFlight = {
@@ -43,41 +44,6 @@ export type FlightPath = {
 
 const PROXY_TIMEOUT_MS = 12_000;
 
-function toBase64(value: string): string {
-  if (typeof btoa === "function") {
-    return btoa(value);
-  }
-
-  // React Native doesn't expose btoa — use a tiny inline encoder.
-  const chars =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  let output = "";
-  let i = 0;
-
-  while (i < value.length) {
-    const a = value.charCodeAt(i++);
-    const b = i < value.length ? value.charCodeAt(i++) : 0;
-    const c = i < value.length ? value.charCodeAt(i++) : 0;
-    const bitmap = (a << 16) | (b << 8) | c;
-
-    output += chars[(bitmap >> 18) & 63];
-    output += chars[(bitmap >> 12) & 63];
-    output += i - 2 < value.length ? chars[(bitmap >> 6) & 63] : "=";
-    output += i - 1 < value.length ? chars[bitmap & 63] : "=";
-  }
-
-  return output;
-}
-
-function getOpenSkyAuthHeader(): Record<string, string> {
-  const username = process.env.EXPO_PUBLIC_OPENSKY_USERNAME;
-  const password = process.env.EXPO_PUBLIC_OPENSKY_PASSWORD;
-
-  if (!username || !password) return {};
-
-  return { Authorization: `Basic ${toBase64(`${username}:${password}`)}` };
-}
-
 export type FlightsInAreaResult = {
   flights: OpenSkyFlight[];
   status: number;
@@ -88,6 +54,29 @@ export type FlightsInAreaResult = {
   /** True when showing a previously stored API snapshot. */
   cached?: boolean;
 };
+
+function shouldFallbackToMockFlights(status: number): boolean {
+  return status === 429 || status === 504 || status === 502 || status === 403 || status === 0;
+}
+
+async function mockOrCachedFlightsResult(
+  cacheKey: string,
+  minLat: number,
+  maxLat: number,
+  minLng: number,
+  maxLng: number,
+  status: number,
+): Promise<FlightsInAreaResult> {
+  const cached = await cachedFlightsResult(cacheKey);
+  if (cached) return cached;
+  return mockFlightsResult(
+    minLat,
+    maxLat,
+    minLng,
+    maxLng,
+    status === 429,
+  );
+}
 
 function mockFlightsResult(
   minLat: number,
@@ -154,9 +143,18 @@ export async function getFlightsInArea(
     const url = `https://opensky-network.org/api/states/all?lamin=${minLat}&lomin=${minLng}&lamax=${maxLat}&lomax=${maxLng}`;
     const response = await fetchOpenSky(url);
 
-    if (response.status === 429) {
-      console.warn("OpenSky rate limited; switching to demo flight data.");
-      return mockFlightsResult(minLat, maxLat, minLng, maxLng, true);
+    if (shouldFallbackToMockFlights(response.status)) {
+      console.warn(
+        `OpenSky unavailable (${response.status}); using cached or demo flight data.`,
+      );
+      return mockOrCachedFlightsResult(
+        cacheKey,
+        minLat,
+        maxLat,
+        minLng,
+        maxLng,
+        response.status,
+      );
     }
 
     if (!response.ok) {
@@ -179,9 +177,14 @@ export async function getFlightsInArea(
     return { flights, status: response.status };
   } catch (error) {
     console.warn("OpenSky fetch failed:", error);
-    const cached = await cachedFlightsResult(cacheKey);
-    if (cached) return cached;
-    return { flights: [], status: 0 };
+    return mockOrCachedFlightsResult(
+      cacheKey,
+      minLat,
+      maxLat,
+      minLng,
+      maxLng,
+      0,
+    );
   }
 }
 
@@ -395,7 +398,7 @@ async function fetchOpenSkyViaProxy(url: string): Promise<Response | null> {
 }
 
 async function fetchOpenSkyDirect(url: string): Promise<Response> {
-  return fetch(url, { headers: getOpenSkyAuthHeader() });
+  return fetch(url, { headers: await getOpenSkyAuthHeaders() });
 }
 
 async function fetchOpenSky(url: string): Promise<Response> {

@@ -1,4 +1,4 @@
-const OPENSKY_TIMEOUT_MS = 8_000;
+const OPENSKY_TIMEOUT_MS = 15_000;
 const TLE_TIMEOUT_MS = 12_000;
 const TLE_GROUP_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 const ALLOWED_TLE_GROUPS = new Set(["visual", "stations", "starlink", "active"]);
@@ -16,17 +16,10 @@ const statesInflight = new Map<string, Promise<Response>>();
 const trackCache = new Map<string, CacheEntry>();
 const tleGroupCache = new Map<string, { body: string; fetchedAt: number }>();
 
-function openskyAuthHeader(): Record<string, string> {
-  const username =
-    process.env.OPENSKY_USERNAME ?? process.env.EXPO_PUBLIC_OPENSKY_USERNAME;
-  const password =
-    process.env.OPENSKY_PASSWORD ?? process.env.EXPO_PUBLIC_OPENSKY_PASSWORD;
+import { getOpenSkyAuthHeaders } from "../../lib/openskyAuth";
 
-  if (!username || !password) return {};
-
-  return {
-    Authorization: `Basic ${btoa(`${username}:${password}`)}`,
-  };
+function openskyAuthHeader(): Promise<Record<string, string>> {
+  return getOpenSkyAuthHeaders();
 }
 
 function statesCacheKey(
@@ -56,7 +49,7 @@ async function fetchOpenSky(openskyUrl: string) {
     const response = await fetch(openskyUrl, {
       headers: {
         Accept: "application/json",
-        ...openskyAuthHeader(),
+        ...(await openskyAuthHeader()),
       },
       signal: controller.signal,
     });
@@ -110,7 +103,7 @@ async function fetchStatesCached(
         return response;
       }
 
-      if (response.status === 429) {
+      if (response.status === 429 || response.status === 504) {
         const retryAfter = response.headers.get("Retry-After");
         const stale = getCachedStates(key, true);
         if (stale) {
@@ -120,7 +113,7 @@ async function fetchStatesCached(
         }
         const headers: Record<string, string> = {};
         if (retryAfter) headers["Retry-After"] = retryAfter;
-        return new Response(null, { status: 429, headers });
+        return new Response(null, { status: response.status, headers });
       }
 
       return response;
@@ -162,7 +155,7 @@ async function fetchTrackCached(icao24: string, time: string): Promise<Response>
     return response;
   }
 
-  if (response.status === 429) {
+  if (response.status === 429 || response.status === 504) {
     const stale = getCachedTrack(id, true);
     if (stale) {
       return Response.json(stale, { headers: { "X-OpenSky-Stale": "true" } });
