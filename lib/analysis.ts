@@ -1,4 +1,3 @@
-import * as sat from 'satellite.js';
 import { getBoundingBox, getFlightsInArea } from './opensky';
 import { supabase } from './supabase';
 
@@ -26,12 +25,6 @@ const BRIGHT_STARS = [
   { name: 'Aldebaran',ra: 4.5987,  dec:  16.509, magnitude:  0.87 },
   { name: 'Antares',  ra: 16.4901, dec: -26.432, magnitude:  0.96 },
   { name: 'Spica',    ra: 13.4199, dec: -11.161, magnitude:  1.04 },
-];
-
-// Satellites worth tracking (NORAD catalog IDs).
-const TRACKED_SATELLITES = [
-  { name: 'ISS',      norad: 25544 },
-  { name: 'Tiangong', norad: 48274 },
 ];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -228,52 +221,57 @@ function checkStarMatch(
   return best?.name ?? null;
 }
 
-// ── Satellite matching (CelesTrak TLE + satellite.js) ─────────────────────────
+// ── Satellite matching (wheretheiss.at live position + spherical trig) ────────
 
-async function fetchTLE(norad: number): Promise<[string, string] | null> {
-  try {
-    const response = await fetch(
-      `https://celestrak.org/satcat/tle.php?CATNR=${norad}`,
-    );
-    if (!response.ok) return null;
-    const lines = (await response.text()).trim().split('\n');
-    if (lines.length < 3) return null;
-    return [lines[1].trim(), lines[2].trim()];
-  } catch {
-    return null;
-  }
+function satelliteElevationDeg(
+  observerLat: number,
+  observerLng: number,
+  satLat: number,
+  satLng: number,
+  satAltKm: number,
+): number {
+  const toRad = Math.PI / 180;
+  const lat1 = observerLat * toRad;
+  const lat2 = satLat * toRad;
+  const dLng = (satLng - observerLng) * toRad;
+  const cosC =
+    Math.sin(lat1) * Math.sin(lat2) +
+    Math.cos(lat1) * Math.cos(lat2) * Math.cos(dLng);
+  const centralAngle = Math.acos(Math.min(1, Math.max(-1, cosC)));
+  const earthRadius = 6371;
+  const elevation = Math.atan2(
+    cosC - earthRadius / (earthRadius + satAltKm),
+    Math.sin(centralAngle),
+  );
+  return elevation / toRad;
 }
 
 async function checkSatelliteMatch(
   latitude: number,
   longitude: number,
-  sightingTime: Date,
   minAltitude: number,
 ): Promise<string | null> {
-  const observerGd = {
-    longitude: sat.degreesToRadians(longitude),
-    latitude: sat.degreesToRadians(latitude),
-    height: 0.0,
-  };
+  try {
+    // ISS live position — same API used by useCelestialData.ts
+    const response = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
+    if (!response.ok) return null;
 
-  for (const { name, norad } of TRACKED_SATELLITES) {
-    const tle = await fetchTLE(norad);
-    if (!tle) continue;
+    const data = await response.json();
+    const satLat = Number(data.latitude);
+    const satLng = Number(data.longitude);
+    const satAltKm = Number(data.altitude);
+    if (Number.isNaN(satLat) || Number.isNaN(satLng)) return null;
 
-    const satrec = sat.twoline2satrec(tle[0], tle[1]);
-    const posVel = sat.propagate(satrec, sightingTime);
-    const position = posVel?.position;
-    if (!position || typeof position === 'boolean') continue;
+    const elev = satelliteElevationDeg(
+      latitude, longitude,
+      satLat, satLng,
+      Number.isNaN(satAltKm) ? 420 : satAltKm,
+    );
 
-    const gmst = sat.gstime(sightingTime);
-    const posEcf = sat.eciToEcf(position as sat.EciVec3<number>, gmst);
-    const lookAngles = sat.ecfToLookAngles(observerGd, posEcf);
-    const elevDeg = sat.radiansToDegrees(lookAngles.elevation);
-
-    if (elevDeg >= minAltitude) return name;
+    return elev >= minAltitude ? 'ISS' : null;
+  } catch {
+    return null;
   }
-
-  return null;
 }
 
 // ── Main exports ──────────────────────────────────────────────────────────────
@@ -338,7 +336,7 @@ export async function computeSightingAnalysis(
         matchedCelestial =
           (await checkPlanetMatch(latitude, longitude, sightingTime, minAlt)) ??
           checkStarMatch(latitude, longitude, sightingTime, minAlt) ??
-          (await checkSatelliteMatch(latitude, longitude, sightingTime, 10));
+          (await checkSatelliteMatch(latitude, longitude, 10));
 
         if (matchedCelestial) status = 'explained';
       }
