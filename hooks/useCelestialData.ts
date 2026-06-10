@@ -1,7 +1,105 @@
 import { useEffect, useState } from "react";
 
 const CELESTIAL_REFRESH_INTERVAL_MS = 300_000; // 5 minutes
-const ISS_REFRESH_INTERVAL_MS = 30_000; // ISS moves ~8 km/s, refresh often
+const SATELLITE_REFRESH_INTERVAL_MS = 30_000;  // satellites move fast
+const TLE_CACHE_TTL_MS = 12 * 60 * 60 * 1000; // TLE data valid ~12 hours
+
+const TRACKED_SATELLITES = [
+  { id: "iss",     name: "ISS",     norad: 25544 },
+  { id: "tiangong",name: "Tiangong",norad: 48274 },
+  { id: "hubble",  name: "Hubble",  norad: 20580 },
+];
+
+interface CachedTLE { tle1: string; tle2: string; fetchedAt: number }
+const tleCache = new Map<number, CachedTLE>();
+
+async function fetchTLE(norad: number): Promise<{ tle1: string; tle2: string } | null> {
+  const cached = tleCache.get(norad);
+  if (cached && Date.now() - cached.fetchedAt < TLE_CACHE_TTL_MS) {
+    return { tle1: cached.tle1, tle2: cached.tle2 };
+  }
+  try {
+    const res = await fetch(`https://celestrak.org/satcat/tle.php?CATNR=${norad}`);
+    if (!res.ok) return cached ?? null;
+    const lines = (await res.text()).trim().split("\n");
+    if (lines.length < 3) return cached ?? null;
+    const entry: CachedTLE = { tle1: lines[1].trim(), tle2: lines[2].trim(), fetchedAt: Date.now() };
+    tleCache.set(norad, entry);
+    return entry;
+  } catch {
+    return cached ?? null;
+  }
+}
+
+/** Propagate TLE to a given Date and return geodetic position. */
+function tleSatPosition(
+  tle1: string,
+  tle2: string,
+  at: Date,
+): { lat: number; lng: number; altKm: number } | null {
+  try {
+    // Parse epoch from TLE line 1
+    const epochField = tle1.substring(18, 32).trim();
+    const yr = parseInt(epochField.substring(0, 2));
+    const fullYear = yr >= 57 ? 1900 + yr : 2000 + yr;
+    const dayFraction = parseFloat(epochField.substring(2));
+    const epochMs = Date.UTC(fullYear, 0, 1) + (dayFraction - 1) * 86_400_000;
+
+    // Parse orbital elements from TLE line 2
+    const inc  = parseFloat(tle2.substring(8, 16))  * Math.PI / 180;
+    const raan = parseFloat(tle2.substring(17, 25)) * Math.PI / 180;
+    const ecc  = parseFloat("0." + tle2.substring(26, 33).trim());
+    const argp = parseFloat(tle2.substring(34, 42)) * Math.PI / 180;
+    const m0   = parseFloat(tle2.substring(43, 51)) * Math.PI / 180;
+    const n    = parseFloat(tle2.substring(52, 63)) * 2 * Math.PI / 86_400; // rad/s
+
+    const dt = (at.getTime() - epochMs) / 1000; // seconds since epoch
+    const mu = 398_600.4418;
+    const a  = Math.cbrt(mu / (n * n));
+
+    // Propagate mean anomaly
+    const M = (m0 + n * dt) % (2 * Math.PI);
+
+    // Solve Kepler's equation
+    let E = M;
+    for (let i = 0; i < 10; i++) E = M + ecc * Math.sin(E);
+
+    // True anomaly
+    const nu = 2 * Math.atan2(
+      Math.sqrt(1 + ecc) * Math.sin(E / 2),
+      Math.sqrt(1 - ecc) * Math.cos(E / 2),
+    );
+
+    const r  = a * (1 - ecc * Math.cos(E));
+    const u  = nu + argp;
+    const cO = Math.cos(raan), sO = Math.sin(raan);
+    const cI = Math.cos(inc),  sI = Math.sin(inc);
+    const cU = Math.cos(u),    sU = Math.sin(u);
+
+    // ECI coordinates (km)
+    const x = r * (cO * cU - sO * sU * cI);
+    const y = r * (sO * cU + cO * sU * cI);
+    const z = r * sU * sI;
+
+    // Rotate ECI → ECEF via GMST
+    const JD = at.getTime() / 86_400_000 + 2_440_587.5;
+    const T  = (JD - 2_451_545.0) / 36_525;
+    const gmstDeg = (280.46061837 + 360.98564736629 * (JD - 2_451_545.0) + T * T * 0.000387933) % 360;
+    const theta = ((gmstDeg + 360) % 360) * Math.PI / 180;
+
+    const xe =  x * Math.cos(theta) + y * Math.sin(theta);
+    const ye = -x * Math.sin(theta) + y * Math.cos(theta);
+    const ze =  z;
+
+    const lng = Math.atan2(ye, xe) * 180 / Math.PI;
+    const lat = Math.atan2(ze, Math.sqrt(xe * xe + ye * ye)) * 180 / Math.PI;
+    const altKm = Math.sqrt(x * x + y * y + z * z) - 6_371;
+
+    return { lat, lng, altKm };
+  } catch {
+    return null;
+  }
+}
 
 /** Brightest stars, J2000 equatorial coordinates. */
 const BRIGHT_STARS = [
@@ -22,7 +120,7 @@ const BRIGHT_STARS = [
   { id: "polaris", name: "Polaris", raHours: 2.53, decDegrees: 89.264, magnitude: 1.98 },
 ] as const;
 
-export type CelestialBodyKind = "planet" | "star" | "iss";
+export type CelestialBodyKind = "planet" | "star" | "satellite";
 
 export type CelestialBody = {
   id: string;
@@ -41,7 +139,7 @@ export function celestialBodyColor(kind: CelestialBodyKind): string {
   switch (kind) {
     case "star":
       return "#FFFFFF";
-    case "iss":
+    case "satellite":
       return "#FF69B4";
     default:
       return "#FFA500";
@@ -151,7 +249,7 @@ export function useNearbyCelestial(
   enabledSatellites: boolean = true,
 ) {
   const [bodies, setBodies] = useState<CelestialBody[]>([]);
-  const [iss, setIss] = useState<CelestialBody | null>(null);
+  const [satellites, setSatellites] = useState<CelestialBody[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -275,50 +373,47 @@ export function useNearbyCelestial(
 
   useEffect(() => {
     if (!enabledSatellites || !latitude || !longitude) {
-      setIss(null);
+      setSatellites([]);
       return;
     }
 
-    async function fetchIss() {
-      try {
-        const response = await fetch(
-          "https://api.wheretheiss.at/v1/satellites/25544",
-        );
-        if (!response.ok) return;
+    async function fetchSatellites() {
+      const now = new Date();
+      const results: CelestialBody[] = [];
 
-        const data = await response.json();
-        const satLat = Number(data.latitude);
-        const satLng = Number(data.longitude);
-        const satAltKm = Number(data.altitude);
-        if (Number.isNaN(satLat) || Number.isNaN(satLng)) return;
+      await Promise.allSettled(
+        TRACKED_SATELLITES.map(async ({ id, name, norad }) => {
+          const tle = await fetchTLE(norad);
+          if (!tle) return;
 
-        const { altitude, azimuth } = satelliteLookAngles(
-          latitude,
-          longitude,
-          satLat,
-          satLng,
-          Number.isNaN(satAltKm) ? 420 : satAltKm,
-        );
+          const pos = tleSatPosition(tle.tle1, tle.tle2, now);
+          if (!pos) return;
 
-        setIss({
-          id: "iss",
-          name: "ISS",
-          kind: "iss",
-          altitude,
-          azimuth,
-          magnitude: null,
-          earthLatitude: satLat,
-          earthLongitude: satLng,
-        });
-      } catch {
-        // Keep the last known ISS position on transient failures
-      }
+          const { altitude, azimuth } = satelliteLookAngles(
+            latitude, longitude,
+            pos.lat, pos.lng, pos.altKm,
+          );
+
+          results.push({
+            id,
+            name,
+            kind: "satellite",
+            altitude,
+            azimuth,
+            magnitude: null,
+            earthLatitude: pos.lat,
+            earthLongitude: pos.lng,
+          });
+        }),
+      );
+
+      setSatellites(results);
     }
 
-    fetchIss();
-    const interval = setInterval(fetchIss, ISS_REFRESH_INTERVAL_MS);
+    fetchSatellites();
+    const interval = setInterval(fetchSatellites, SATELLITE_REFRESH_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [latitude, longitude, enabledSatellites]);
 
-  return { bodies, iss, loading, error };
+  return { bodies, satellites, loading, error };
 }

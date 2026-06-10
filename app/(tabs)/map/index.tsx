@@ -31,7 +31,7 @@ export default function MapScreen() {
     filters.showFlightPaths,
   );
 
-  const { bodies: celestialBodies, iss } = useNearbyCelestial(
+  const { bodies: celestialBodies, satellites } = useNearbyCelestial(
     MAP_CENTER.latitude,
     MAP_CENTER.longitude,
     filters.showCelestial,
@@ -40,7 +40,7 @@ export default function MapScreen() {
 
   const visibleCelestial = [
     ...(filters.showCelestial ? celestialBodies : []),
-    ...(filters.showSatellites && iss ? [iss] : []),
+    ...(filters.showSatellites ? satellites : []),
   ];
 
   // Fetch all sightings from Supabase
