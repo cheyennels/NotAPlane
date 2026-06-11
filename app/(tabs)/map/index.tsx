@@ -8,8 +8,8 @@ import { useFilters } from "@/context/FilterContext";
 import { useNearbyCelestial, CELESTIAL_REFERENCE_ZOOM } from "@/hooks/useCelestialData";
 import { useNearbyFlights } from "@/hooks/useFlightData";
 import { supabase } from "@/lib/supabase";
-import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 type Sighting = MapSighting & {
@@ -43,16 +43,34 @@ export default function MapScreen() {
     ...(filters.showSatellites ? satellites : []),
   ];
 
-  // Fetch all sightings from Supabase
-  useEffect(() => {
-    async function fetchSightings() {
-      const { data } = await supabase
-        .from("sightings")
-        .select("id, latitude, longitude, status, created_at");
-      if (data) setAllSightings(data);
+  const fetchSightings = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("sightings")
+      .select("id, latitude, longitude, status, created_at");
+
+    if (error) {
+      console.warn("Failed to load sightings:", error.message);
+      return;
     }
-    fetchSightings();
+
+    setAllSightings(data ?? []);
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void fetchSightings();
+    }, [fetchSightings]),
+  );
+
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      void fetchSightings();
+    });
+
+    return () => subscription.unsubscribe();
+  }, [fetchSightings]);
 
   // Apply filters whenever allSightings or filters change
   useEffect(() => {
