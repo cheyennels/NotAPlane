@@ -55,7 +55,10 @@ export default function WebPhoneFrame({ children }: WebPhoneFrameProps) {
 const styles = StyleSheet.create({
   mobile: {
     flex: 1,
-    minHeight: "100vh" as unknown as number,
+    width: "100%",
+    maxWidth: "100vw" as unknown as number,
+    minHeight: "100dvh" as unknown as number,
+    overflow: "hidden" as "visible",
   },
   page: {
     flex: 1,

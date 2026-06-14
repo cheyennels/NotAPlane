@@ -12,6 +12,7 @@ import {
   StyleSheet,
   Text,
 } from "react-native";
+import { getAuthRedirectUrl } from "@/lib/auth-redirect";
 import { supabase } from "../../lib/supabase";
 
 export default function SignUpScreen() {
@@ -48,10 +49,11 @@ export default function SignUpScreen() {
 
     setLoading(true);
     const { data, error } = await supabase.auth.signUp({
-      email,
+      email: email.trim(),
       password,
       options: {
         data: { name },
+        emailRedirectTo: getAuthRedirectUrl(),
       },
     });
 
@@ -70,11 +72,14 @@ export default function SignUpScreen() {
       });
     }
 
-    Alert.alert(
-      "Account Created!",
-      "Welcome to NotAPlane. You can now log in.",
-      [{ text: "OK", onPress: () => router.replace("/(auth)") }],
-    );
+    if (data.session) {
+      router.replace("/(tabs)/map" as any);
+    } else {
+      router.replace({
+        pathname: "/(auth)/verify-email",
+        params: { email: email.trim() },
+      } as any);
+    }
     setLoading(false);
   }
 

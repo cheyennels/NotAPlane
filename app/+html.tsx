@@ -9,7 +9,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta
           name="viewport"
-          content="width=device-width, initial-scale=1, shrink-to-fit=no"
+          content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover"
         />
         <meta
           name="description"
@@ -25,6 +25,11 @@ export default function Root({ children }: PropsWithChildren) {
                 margin: 0;
                 background: #141414;
                 overflow-x: hidden;
+                -webkit-text-size-adjust: 100%;
+                text-size-adjust: 100%;
+              }
+              input, textarea, select {
+                font-size: 16px;
               }
             `,
           }}

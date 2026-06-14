@@ -1,6 +1,7 @@
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
 import {
+  Platform,
   StyleProp,
   StyleSheet,
   Text,
@@ -62,7 +63,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.white,
     padding: 14,
     fontFamily: Fonts.mono,
-    fontSize: 12,
+    fontSize: Platform.OS === "web" ? 16 : 12,
     color: Colors.white,
   },
   inputDark: {

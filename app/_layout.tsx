@@ -57,12 +57,11 @@ export default function RootLayout() {
     if (!initialized) return;
 
     const inAuthGroup = segments[0] === "(auth)";
+    const onAuthCallback = segments[0] === "auth";
 
-    if (!session && !inAuthGroup) {
-      // Not logged in and not on auth screen → send to login
+    if (!session && !inAuthGroup && !onAuthCallback) {
       router.replace("/(auth)");
-    } else if (session && inAuthGroup) {
-      // Logged in but on auth screen → send to map
+    } else if (session && inAuthGroup && segments[1] !== "verify-email") {
       router.replace("/(tabs)/map" as any);
     }
   }, [session, initialized, segments]);
@@ -79,6 +78,7 @@ export default function RootLayout() {
       }}
     >
       <Stack.Screen name="(auth)" />
+      <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="report" />
     </Stack>

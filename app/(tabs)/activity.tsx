@@ -3,7 +3,8 @@ import SectionLabel from "@/components/ui/SectionLabel";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
 import { supabase } from "@/lib/supabase";
-import { useEffect, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -16,78 +17,100 @@ import {
 type ActivityItem = {
   id: string;
   sighting_id: string;
-  count: number;
   location: string;
   created_at: string;
 };
+
+function formatLocation(latitude: number, longitude: number): string {
+  const latSuffix = latitude >= 0 ? "N" : "S";
+  const lngSuffix = longitude >= 0 ? "E" : "W";
+  return `${Math.abs(latitude).toFixed(2)}° ${latSuffix} · ${Math.abs(longitude).toFixed(2)}° ${lngSuffix}`;
+}
 
 export default function ActivityScreen() {
   const [newItems, setNewItems] = useState<ActivityItem[]>([]);
   const [olderItems, setOlderItems] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function fetchActivity() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
+  const fetchActivity = useCallback(async () => {
+    setLoading(true);
+    setError(null);
 
-      // Get all sightings by the current user
-      const { data: sightings } = await supabase
-        .from("sightings")
-        .select("id, location_description, latitude, longitude")
-        .eq("user_id", user.id);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-      if (!sightings?.length) {
-        setLoading(false);
-        return;
-      }
-
-      const sightingIds = sightings.map((s) => s.id);
-
-      // Get corroborations on those sightings
-      const { data: corroborations } = await supabase
-        .from("corroborations")
-        .select("id, sighting_id, created_at")
-        .in("sighting_id", sightingIds)
-        .order("created_at", { ascending: false });
-
-      if (!corroborations?.length) {
-        setLoading(false);
-        return;
-      }
-
-      // Group by sighting_id and count
-      const grouped: Record<string, { count: number; created_at: string }> = {};
-      for (const c of corroborations) {
-        if (!grouped[c.sighting_id]) {
-          grouped[c.sighting_id] = { count: 0, created_at: c.created_at };
-        }
-        grouped[c.sighting_id].count++;
-      }
-
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-
-      const items: ActivityItem[] = Object.entries(grouped).map(
-        ([sighting_id, { count, created_at }]) => {
-          const sighting = sightings.find((s) => s.id === sighting_id);
-          const location =
-            sighting?.location_description ||
-            `${sighting?.latitude?.toFixed(2)}, ${sighting?.longitude?.toFixed(2)}` ||
-            "Unknown location";
-          return { id: sighting_id, sighting_id, count, location, created_at };
-        },
-      );
-
-      setNewItems(items.filter((i) => new Date(i.created_at) >= weekAgo));
-      setOlderItems(items.filter((i) => new Date(i.created_at) < weekAgo));
+    if (!user) {
+      setNewItems([]);
+      setOlderItems([]);
       setLoading(false);
+      return;
     }
 
-    fetchActivity();
+    const { data: sightings, error: sightingsError } = await supabase
+      .from("sightings")
+      .select("id, latitude, longitude")
+      .eq("user_id", user.id);
+
+    if (sightingsError) {
+      setError(sightingsError.message);
+      setLoading(false);
+      return;
+    }
+
+    if (!sightings?.length) {
+      setNewItems([]);
+      setOlderItems([]);
+      setLoading(false);
+      return;
+    }
+
+    const sightingIds = sightings.map((s) => s.id);
+    const locationById = new Map(
+      sightings.map((s) => [s.id, formatLocation(s.latitude, s.longitude)]),
+    );
+
+    const { data: corroborations, error: corroborationsError } = await supabase
+      .from("corroborations")
+      .select("id, sighting_id, created_at")
+      .in("sighting_id", sightingIds)
+      .order("created_at", { ascending: false });
+
+    if (corroborationsError) {
+      setError(corroborationsError.message);
+      setLoading(false);
+      return;
+    }
+
+    if (!corroborations?.length) {
+      setNewItems([]);
+      setOlderItems([]);
+      setLoading(false);
+      return;
+    }
+
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+
+    const items: ActivityItem[] = corroborations.map((corroboration) => ({
+      id: corroboration.id,
+      sighting_id: corroboration.sighting_id,
+      location:
+        locationById.get(corroboration.sighting_id) ?? "Unknown location",
+      created_at: corroboration.created_at,
+    }));
+
+    setNewItems(items.filter((item) => new Date(item.created_at) >= weekAgo));
+    setOlderItems(items.filter((item) => new Date(item.created_at) < weekAgo));
+    setLoading(false);
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void fetchActivity();
+    }, [fetchActivity]),
+  );
 
   function formatDate(dateStr: string) {
     const d = new Date(dateStr);
@@ -103,10 +126,12 @@ export default function ActivityScreen() {
       <TouchableOpacity
         key={item.id}
         style={styles.notifCard}
-        onPress={() => {}}
+        onPress={() =>
+          router.push(`/(tabs)/map/sighting/${item.sighting_id}` as any)
+        }
       >
         <Text style={styles.notifText}>
-          {`${item.count} ${item.count === 1 ? "PERSON" : "PEOPLE"} CORROBORATED YOUR SIGHTING IN ${item.location.toUpperCase()}`}
+          {`SOMEONE CORROBORATED YOUR SIGHTING NEAR ${item.location.toUpperCase()}`}
         </Text>
         <Text style={styles.notifDate}>{formatDate(item.created_at)}</Text>
       </TouchableOpacity>
@@ -122,6 +147,8 @@ export default function ActivityScreen() {
 
       {loading ? (
         <ActivityIndicator color={Colors.green} style={{ marginTop: 40 }} />
+      ) : error ? (
+        <Text style={styles.error}>{error}</Text>
       ) : (
         <ScrollView contentContainerStyle={styles.inner}>
           <SectionLabel variant="section">New</SectionLabel>
@@ -171,5 +198,13 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: Colors.muted,
     letterSpacing: 1,
+  },
+  error: {
+    fontFamily: Fonts.mono,
+    fontSize: 10,
+    color: Colors.red,
+    letterSpacing: 1,
+    paddingHorizontal: 24,
+    paddingTop: 20,
   },
 });
