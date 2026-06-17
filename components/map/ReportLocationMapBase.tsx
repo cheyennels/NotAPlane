@@ -6,6 +6,7 @@ import {
   initializeMapbox,
   isExpoGo,
 } from "@/lib/mapbox";
+import { useEffect, useRef } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 type ReportLocationMapProps = {
@@ -50,6 +51,15 @@ export default function ReportLocationMapBase({
   const MapView = Mapbox.MapView ?? Mapbox.default?.MapView;
   const Camera = Mapbox.Camera ?? Mapbox.default?.Camera;
   const MarkerView = Mapbox.MarkerView ?? Mapbox.default?.MarkerView;
+  const cameraRef = useRef<{ setCamera: (config: object) => void } | null>(null);
+
+  useEffect(() => {
+    cameraRef.current?.setCamera({
+      centerCoordinate: coordinate,
+      zoomLevel: 11,
+      animationDuration: 250,
+    });
+  }, [coordinate]);
 
   return (
     <MapView
@@ -64,9 +74,11 @@ export default function ReportLocationMapBase({
       scaleBarEnabled={false}
     >
       <Camera
+        ref={cameraRef}
         zoomLevel={11}
         centerCoordinate={coordinate}
-        animationMode="none"
+        animationMode="flyTo"
+        animationDuration={250}
       />
       <MarkerView coordinate={coordinate} anchor={{ x: 0.5, y: 0.5 }}>
         <View style={styles.pin} />

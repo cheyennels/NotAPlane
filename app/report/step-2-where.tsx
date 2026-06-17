@@ -6,41 +6,47 @@ import SectionLabel from "@/components/ui/SectionLabel";
 import ToggleRow from "@/components/ui/ToggleRow";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
-import * as Location from "expo-location";
+import { getDeviceLocation, type DeviceLocation } from "@/lib/getDeviceLocation";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
 import { useReport } from "../../context/ReportContext";
 
 export default function StepTwoWhere() {
   const { form, updateForm } = useReport();
   const [useCurrentLocation, setUseCurrentLocation] = useState(false);
+  const [locating, setLocating] = useState(false);
   const [coordinates, setCoordinates] = useState<[number, number]>([
     form.longitude,
     form.latitude,
   ]);
 
-  async function getCurrentLocation() {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert(
-        "Permission Denied",
-        "Location permission is required to use this feature. Please enable it in your settings.",
-      );
+  function applyCoordinates(longitude: number, latitude: number) {
+    setCoordinates([longitude, latitude]);
+    updateForm({ latitude, longitude });
+  }
+
+  async function applyCurrentLocation(): Promise<DeviceLocation | null> {
+    setLocating(true);
+    try {
+      const location = await getDeviceLocation();
+      if (!location) return null;
+
+      applyCoordinates(location.longitude, location.latitude);
+      return location;
+    } finally {
+      setLocating(false);
+    }
+  }
+
+  async function handleToggle() {
+    if (useCurrentLocation) {
       setUseCurrentLocation(false);
       return;
     }
 
-    const location = await Location.getCurrentPositionAsync({});
-    setCoordinates([location.coords.longitude, location.coords.latitude]);
-  }
-
-  async function handleToggle() {
-    const next = !useCurrentLocation;
-    setUseCurrentLocation(next);
-    if (next) {
-      await getCurrentLocation();
-    }
+    const location = await applyCurrentLocation();
+    setUseCurrentLocation(Boolean(location));
   }
 
   function formatLat(coord: number) {
@@ -51,11 +57,24 @@ export default function StepTwoWhere() {
     return `${Math.abs(coord).toFixed(4)}° ${coord >= 0 ? "E" : "W"}`;
   }
 
-  function handleContinue() {
-    updateForm({
-      latitude: coordinates[1],
-      longitude: coordinates[0],
-    });
+  async function handleContinue() {
+    let longitude = coordinates[0];
+    let latitude = coordinates[1];
+
+    if (useCurrentLocation) {
+      const location = await applyCurrentLocation();
+      if (!location) {
+        Alert.alert(
+          "Current location unavailable",
+          "Allow location access or turn off the toggle and place the pin manually.",
+        );
+        return;
+      }
+      longitude = location.longitude;
+      latitude = location.latitude;
+    }
+
+    updateForm({ latitude, longitude });
     router.push("/report/step-3-what" as any);
   }
 
@@ -65,7 +84,11 @@ export default function StepTwoWhere() {
       stepHeading="Where did you see it?"
       footer={
         <BottomActionBar>
-          <Button label="Continue" onPress={handleContinue} />
+          <Button
+            label={locating ? "Finding location..." : "Continue"}
+            onPress={handleContinue}
+            disabled={locating}
+          />
           <Button
             label="Cancel"
             variant="outline"
@@ -79,13 +102,21 @@ export default function StepTwoWhere() {
           style={styles.map}
           coordinate={coordinates}
           onCoordinateChange={(coords) => {
-            if (!useCurrentLocation) setCoordinates(coords);
+            if (!useCurrentLocation) {
+              applyCoordinates(coords[0], coords[1]);
+            }
           }}
         />
-        <Text style={styles.mapHint}>TAP TO REPOSITION PIN</Text>
+        <Text style={styles.mapHint}>
+          {useCurrentLocation ? "USING YOUR CURRENT LOCATION" : "TAP TO REPOSITION PIN"}
+        </Text>
+        {locating ? (
+          <View style={styles.locatingOverlay}>
+            <ActivityIndicator color={Colors.green} />
+          </View>
+        ) : null}
       </View>
 
-      {/* Use current location toggle */}
       <ToggleRow
         label="Use my Current Location"
         sublabel="Location must be allowed in settings"
@@ -95,7 +126,6 @@ export default function StepTwoWhere() {
 
       <View style={styles.divider} />
 
-      {/* Coordinates */}
       <View style={styles.coordRow}>
         <View style={styles.coordBox}>
           <SectionLabel>Latitude</SectionLabel>
@@ -133,6 +163,12 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.6)",
     paddingHorizontal: 8,
     paddingVertical: 4,
+  },
+  locatingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.35)",
   },
   divider: {
     height: 2,
