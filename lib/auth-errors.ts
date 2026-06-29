@@ -6,14 +6,14 @@ export function getAuthErrorMessage(message: string): string {
   }
 
   if (normalized.includes("email not confirmed")) {
-    return "Please confirm your email before logging in. Check your inbox for the Supabase confirmation link.";
+    return "Please confirm your email before logging in. Check your inbox for the confirmation link.";
   }
 
   if (
     normalized.includes("too many requests") ||
     normalized.includes("rate limit")
   ) {
-    return "Too many attempts. Wait a few minutes, or create the user manually in the Supabase dashboard.";
+    return "Too many attempts. Please wait a few minutes and try again.";
   }
 
   return message;

@@ -9,6 +9,7 @@ import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
+  Alert,
   Image,
   StyleSheet,
   Text,
@@ -18,6 +19,9 @@ import {
 } from "react-native";
 import { useReport } from "../../context/ReportContext";
 import { cachePhotoAsset } from "../../lib/uploadPhoto";
+
+const MAX_PHOTOS = 6;
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // matches the storage bucket limit
 
 const SHAPES = ["Sphere / Orb", "Cigar", "Disc", "Triangle", "Unknown / Other"];
 const SOUNDS = ["Silent", "Humming", "Buzzing", "Loud", "Other"];
@@ -64,21 +68,43 @@ export default function StepThreeWhat() {
   }
 
   async function pickImage() {
+    const remaining = MAX_PHOTOS - photos.length;
+    if (remaining <= 0) {
+      Alert.alert("Photo limit", `You can attach up to ${MAX_PHOTOS} photos.`);
+      return;
+    }
+
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") return;
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,
+      selectionLimit: remaining,
       quality: 0.8,
     });
 
-    if (!result.canceled) {
-      for (const asset of result.assets) {
-        await cachePhotoAsset(asset.uri, asset.file as File | undefined);
+    if (result.canceled) return;
+
+    const accepted: string[] = [];
+    let skippedTooLarge = false;
+    for (const asset of result.assets.slice(0, remaining)) {
+      if (asset.fileSize && asset.fileSize > MAX_PHOTO_BYTES) {
+        skippedTooLarge = true;
+        continue;
       }
-      const uris = result.assets.map((a) => a.uri);
-      setPhotos((prev) => [...prev, ...uris]);
+      await cachePhotoAsset(asset.uri, asset.file as File | undefined);
+      accepted.push(asset.uri);
+    }
+
+    if (accepted.length > 0) {
+      setPhotos((prev) => [...prev, ...accepted]);
+    }
+    if (skippedTooLarge) {
+      Alert.alert(
+        "Photo too large",
+        "Some photos exceed the 5 MB limit and were skipped.",
+      );
     }
   }
 

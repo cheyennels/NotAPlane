@@ -3,6 +3,7 @@ import FormField from "@/components/ui/FormField";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
+import { getAuthRedirectUrl } from "@/lib/auth-redirect";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
@@ -48,6 +49,28 @@ export default function LoginScreen() {
     setLoading(false);
   }
 
+  async function handleForgotPassword() {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setErrorMessage('Enter your email above, then tap "Forgot your password?"');
+      return;
+    }
+
+    setErrorMessage(null);
+    const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+      redirectTo: getAuthRedirectUrl("auth/reset"),
+    });
+
+    if (error) {
+      Alert.alert("Error", getAuthErrorMessage(error.message));
+    } else {
+      Alert.alert(
+        "Check your email",
+        "If an account exists for that address, we sent a password reset link.",
+      );
+    }
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -80,7 +103,7 @@ export default function LoginScreen() {
         />
 
         {/* Forgot password */}
-        <TouchableOpacity>
+        <TouchableOpacity onPress={handleForgotPassword}>
           <Text style={styles.forgotPassword}>Forgot your password?</Text>
         </TouchableOpacity>
 

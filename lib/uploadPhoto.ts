@@ -1,7 +1,34 @@
+import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
+import { Platform } from "react-native";
 import { clearPhotoFiles, getPhotoFile, registerPhotoFile } from "./photoFileCache";
 import { supabase } from "./supabase";
 
 const BUCKET = "sighting-photos";
+
+// Photos land in a PUBLIC bucket, so strip EXIF (which can include the exact GPS
+// coordinates where the photo was taken) before upload. Re-encoding the image
+// drops all metadata. Native only — the web path uploads a File the browser
+// already produced; manipulate() there expects file/data URIs.
+async function stripImageMetadata(
+  uri: string,
+  contentType: string,
+): Promise<{ uri: string; contentType: string }> {
+  if (Platform.OS === "web") return { uri, contentType };
+
+  try {
+    const format =
+      contentType === "image/png" ? SaveFormat.PNG : SaveFormat.JPEG;
+    const rendered = await ImageManipulator.manipulate(uri).renderAsync();
+    const result = await rendered.saveAsync({ compress: 0.9, format });
+    return {
+      uri: result.uri,
+      contentType: format === SaveFormat.PNG ? "image/png" : "image/jpeg",
+    };
+  } catch (error) {
+    console.warn("EXIF strip failed; uploading original:", error);
+    return { uri, contentType };
+  }
+}
 
 function extensionForMime(contentType: string): string {
   switch (contentType) {
@@ -89,7 +116,8 @@ export async function uploadPhotos(
   const timestamp = Date.now();
 
   for (let i = 0; i < uris.length; i++) {
-    const resolved = await resolvePhotoBlob(uris[i]);
+    const safe = await stripImageMetadata(uris[i], inferMimeType(uris[i], ""));
+    const resolved = await resolvePhotoBlob(safe.uri);
     if (!resolved) {
       return {
         urls: [],

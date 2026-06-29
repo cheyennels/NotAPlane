@@ -18,8 +18,7 @@ import {
   isMockFlightsForced,
   setMockFlightsActive,
 } from "./mockFlights";
-import { getOpenSkyAuthHeaders } from "./openskyAuth";
-import { Platform } from "react-native";
+import { functionAuthHeaders, functionUrl } from "./edgeFetch";
 
 export type OpenSkyFlight = {
   icao24: string;
@@ -339,99 +338,42 @@ export async function findNearbyFlights(
   return result.flights;
 }
 
-async function fetchOpenSkyViaExpoApi(url: string): Promise<Response | null> {
+// All platforms go through the authenticated opensky-proxy Edge Function, which
+// holds the OpenSky credentials. We translate the OpenSky URL the rest of this
+// module builds into the proxy's query params.
+async function fetchOpenSky(url: string): Promise<Response> {
   const parsed = new URL(url);
+  const params = new URLSearchParams();
+
+  const icao24 = parsed.searchParams.get("icao24");
+  const time = parsed.searchParams.get("time");
   const lamin = parsed.searchParams.get("lamin");
   const lomin = parsed.searchParams.get("lomin");
   const lamax = parsed.searchParams.get("lamax");
   const lomax = parsed.searchParams.get("lomax");
-  const icao24 = parsed.searchParams.get("icao24");
 
-  let apiUrl: string | null = null;
-
-  if (lamin && lomin && lamax && lomax) {
-    apiUrl = `/api/opensky?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`;
-  } else if (icao24 && parsed.searchParams.has("time")) {
-    apiUrl = `/api/opensky?icao24=${icao24}&time=${parsed.searchParams.get("time")}`;
+  if (icao24 && time !== null) {
+    params.set("icao24", icao24);
+    params.set("time", time);
+  } else if (lamin && lomin && lamax && lomax) {
+    params.set("lamin", lamin);
+    params.set("lomin", lomin);
+    params.set("lamax", lamax);
+    params.set("lomax", lomax);
+  } else {
+    return new Response(null, { status: 400, statusText: "Bad request" });
   }
-
-  if (!apiUrl) return null;
 
   try {
-    return await fetch(apiUrl, {
-      signal: AbortSignal.timeout(PROXY_TIMEOUT_MS),
-    });
-  } catch (error) {
-    console.warn("OpenSky API route unavailable:", error);
-    return null;
-  }
-}
-
-async function fetchOpenSkyViaProxy(url: string): Promise<Response | null> {
-  const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !anonKey) return null;
-
-  const parsed = new URL(url);
-  const lamin = parsed.searchParams.get("lamin");
-  const lomin = parsed.searchParams.get("lomin");
-  const lamax = parsed.searchParams.get("lamax");
-  const lomax = parsed.searchParams.get("lomax");
-  const icao24 = parsed.searchParams.get("icao24");
-
-  let proxyUrl: string | null = null;
-
-  if (lamin && lomin && lamax && lomax) {
-    proxyUrl = `${supabaseUrl}/functions/v1/opensky-proxy?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`;
-  } else if (icao24 && parsed.searchParams.has("time")) {
-    proxyUrl = `${supabaseUrl}/functions/v1/opensky-proxy?icao24=${icao24}&time=${parsed.searchParams.get("time")}`;
-  }
-
-  if (!proxyUrl) return null;
-
-  try {
-    return await fetch(proxyUrl, {
-      headers: {
-        Authorization: `Bearer ${anonKey}`,
-        apikey: anonKey,
-      },
+    return await fetch(functionUrl("opensky-proxy", params), {
+      headers: await functionAuthHeaders(),
       signal: AbortSignal.timeout(PROXY_TIMEOUT_MS),
     });
   } catch (error) {
     console.warn("OpenSky proxy unavailable:", error);
-    return null;
+    return new Response(null, {
+      status: 502,
+      statusText: "OpenSky proxy unavailable",
+    });
   }
-}
-
-async function fetchOpenSkyDirect(url: string): Promise<Response> {
-  return fetch(url, { headers: await getOpenSkyAuthHeaders() });
-}
-
-async function fetchOpenSky(url: string): Promise<Response> {
-  // Native apps can call OpenSky directly (no browser CORS).
-  if (Platform.OS !== "web") {
-    return fetchOpenSkyDirect(url);
-  }
-
-  const apiResponse = await fetchOpenSkyViaExpoApi(url);
-  if (apiResponse?.ok) return apiResponse;
-
-  // A 429 from the local API route means OpenSky is rate-limiting; don't
-  // immediately hit the Supabase proxy for the same track request.
-  if (apiResponse?.status === 429) {
-    return apiResponse;
-  }
-
-  const proxyResponse = await fetchOpenSkyViaProxy(url);
-  if (proxyResponse?.ok) return proxyResponse;
-
-  const failed = apiResponse ?? proxyResponse;
-  if (failed && !failed.ok) {
-    const detail = await failed.clone().text();
-    console.warn("OpenSky web fetch error:", failed.status, detail);
-    return failed;
-  }
-
-  return new Response(null, { status: 502, statusText: "OpenSky proxy unavailable" });
 }

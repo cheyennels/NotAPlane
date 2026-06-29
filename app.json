@@ -38,7 +38,8 @@
           "locationWhenInUsePermission": "NotAPlane uses your location to pin where you saw something on the map."
         }
       ],
-      "@rnmapbox/maps"
+      "@rnmapbox/maps",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true

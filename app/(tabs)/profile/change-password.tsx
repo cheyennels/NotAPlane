@@ -4,6 +4,7 @@ import Button from "@/components/ui/Button";
 import FormField from "@/components/ui/FormField";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
+import { getAuthRedirectUrl } from "@/lib/auth-redirect";
 import { useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { supabase } from "../../../lib/supabase";
@@ -31,6 +32,27 @@ export default function ChangePasswordScreen() {
     if (!canSubmit) return;
     setLoading(true);
 
+    // Re-authenticate: verify the current password before allowing a change so
+    // a stolen unlocked session can't silently take over the account.
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user?.email) {
+      Alert.alert("Error", "You must be signed in to change your password.");
+      setLoading(false);
+      return;
+    }
+
+    const { error: reauthError } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: currentPassword,
+    });
+    if (reauthError) {
+      Alert.alert("Incorrect Password", "Your current password is incorrect.");
+      setLoading(false);
+      return;
+    }
+
     const { error } = await supabase.auth.updateUser({
       password: newPassword,
     });
@@ -43,6 +65,23 @@ export default function ChangePasswordScreen() {
     setLoading(false);
   }
 
+  async function handleForgotPassword() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user?.email) return;
+
+    const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+      redirectTo: getAuthRedirectUrl("auth/reset"),
+    });
+    Alert.alert(
+      error ? "Error" : "Check your email",
+      error
+        ? error.message
+        : "We sent a password reset link to your email address.",
+    );
+  }
+
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.inner}>
@@ -53,8 +92,8 @@ export default function ChangePasswordScreen() {
           <View style={styles.successBanner}>
             <Text style={styles.successTitle}>Password Updated!</Text>
             <Text style={styles.successBody}>
-              Your password has been changed successfully. You'll need to log in
-              again on other devices.
+              Your password has been changed successfully. You&apos;ll need to
+              log in again on other devices.
             </Text>
           </View>
         )}
@@ -74,7 +113,7 @@ export default function ChangePasswordScreen() {
           onChangeText={setNewPassword}
           secureTextEntry
           status={newPassword.length > 0 && allMet ? "success" : "default"}
-          hint="*password must be 7 characters with a special character"
+          hint="*min 8 chars with an uppercase letter, number, and special character"
         />
 
         <FormField
@@ -115,7 +154,11 @@ export default function ChangePasswordScreen() {
           onPress={handleChangePassword}
           disabled={!canSubmit || loading}
         />
-        <Button label="Forgot your password?" variant="outline" />
+        <Button
+          label="Forgot your password?"
+          variant="outline"
+          onPress={handleForgotPassword}
+        />
       </BottomActionBar>
     </View>
   );

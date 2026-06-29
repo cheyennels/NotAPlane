@@ -36,10 +36,20 @@ export default function RootLayout() {
   }, [loaded]);
 
   useEffect(() => {
-    // Check if user is already logged in
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Hydrate from the locally persisted session first so startup works offline,
+    // then validate it against the server: getUser() makes a network round-trip,
+    // so a token that was revoked server-side (e.g. after a password reset) is
+    // caught and the stale session is signed out.
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setInitialized(true);
+
+      if (session) {
+        const { error } = await supabase.auth.getUser();
+        if (error && (error.status === 401 || error.status === 403)) {
+          await supabase.auth.signOut();
+        }
+      }
     });
 
     // Listen for auth changes (login, logout)
@@ -79,6 +89,7 @@ export default function RootLayout() {
     >
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
+      <Stack.Screen name="auth/reset" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="report" />
     </Stack>
