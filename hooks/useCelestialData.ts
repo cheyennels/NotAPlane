@@ -1,3 +1,4 @@
+import { functionAuthHeaders, functionUrl } from "@/lib/edgeFetch";
 import { getTrackedSatellitePositions } from "@/lib/satellites";
 import { useEffect, useState } from "react";
 
@@ -133,15 +134,6 @@ export function useNearbyCelestial(
   useEffect(() => {
     if (!enabledBodies || !latitude || !longitude) return;
 
-    const appId = process.env.EXPO_PUBLIC_ASTRONOMY_APP_ID;
-    const appSecret = process.env.EXPO_PUBLIC_ASTRONOMY_APP_SECRET;
-    if (!appId || !appSecret) {
-      setError("Add EXPO_PUBLIC_ASTRONOMY_APP_ID and EXPO_PUBLIC_ASTRONOMY_APP_SECRET to .env");
-      return;
-    }
-
-    const auth = btoa(`${appId}:${appSecret}`);
-
     async function fetchBodies() {
       setLoading(true);
       try {
@@ -158,10 +150,9 @@ export function useNearbyCelestial(
           time,
         });
 
-        const response = await fetch(
-          `https://api.astronomyapi.com/api/v2/bodies/positions?${params}`,
-          { headers: { Authorization: `Basic ${auth}` } }
-        );
+        const response = await fetch(functionUrl("astronomy-proxy", params), {
+          headers: await functionAuthHeaders(),
+        });
 
         if (!response.ok) {
           setError("Celestial data unavailable");

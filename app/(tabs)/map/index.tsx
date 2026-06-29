@@ -44,8 +44,10 @@ export default function MapScreen() {
   ];
 
   const fetchSightings = useCallback(async () => {
+    // community_sightings is the privacy-safe view: rounded coordinates, no
+    // user_id. The base sightings table only returns the viewer's own rows.
     const { data, error } = await supabase
-      .from("sightings")
+      .from("community_sightings")
       .select("id, latitude, longitude, status, created_at");
 
     if (error) {

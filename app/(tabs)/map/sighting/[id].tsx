@@ -8,7 +8,6 @@ import { getStatusColor, getStatusLabel } from "@/lib/status";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
-  Alert,
   Image,
   Modal,
   Platform,
@@ -19,11 +18,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { notify } from "@/lib/notify";
 import { supabase } from "../../../../lib/supabase";
 
 type Sighting = {
   id: string;
-  user_id: string;
+  user_id?: string;
   sighted_at: string;
   duration: string;
   latitude: number;
@@ -59,18 +59,35 @@ export default function SightingDetailScreen() {
         data: { user },
       } = await supabase.auth.getUser();
 
+      // The owner reads their full row (exact coordinates) from the base table,
+      // which RLS restricts to own rows. Everyone else reads the privacy-safe
+      // community_sightings view (rounded coordinates, no user_id).
+      if (user) {
+        const { data: own } = await supabase
+          .from("sightings")
+          .select("*")
+          .eq("id", id)
+          .maybeSingle();
+        if (own) {
+          setSighting(own as Sighting);
+          setIsOwnReport(true);
+          setLoading(false);
+          return;
+        }
+      }
+
       const { data, error } = await supabase
-        .from("sightings")
+        .from("community_sightings")
         .select("*")
         .eq("id", id)
-        .single();
+        .maybeSingle();
 
-      if (error) {
-        Alert.alert("Error", "Could not load sighting.");
+      if (error || !data) {
+        notify("Error", "Could not load sighting.");
         router.back();
       } else {
-        setSighting(data);
-        setIsOwnReport(Boolean(user && data.user_id === user.id));
+        setSighting(data as Sighting);
+        setIsOwnReport(false);
       }
       setLoading(false);
     }

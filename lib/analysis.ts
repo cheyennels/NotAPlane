@@ -1,3 +1,4 @@
+import { functionAuthHeaders, functionUrl } from './edgeFetch';
 import { getBoundingBox, getFlightsInArea } from './opensky';
 import { findBestSatelliteMatch } from './satellites';
 import { supabase } from './supabase';
@@ -111,11 +112,6 @@ async function checkPlanetMatch(
   minAltitude: number,
 ): Promise<string | null> {
   try {
-    const appId = process.env.EXPO_PUBLIC_ASTRONOMY_APP_ID;
-    const appSecret = process.env.EXPO_PUBLIC_ASTRONOMY_APP_SECRET;
-    if (!appId || !appSecret) return null;
-
-    const auth = btoa(`${appId}:${appSecret}`);
     const date = sightingTime.toISOString().split('T')[0];
     const time = sightingTime.toTimeString().slice(0, 8);
 
@@ -128,10 +124,9 @@ async function checkPlanetMatch(
       time,
     });
 
-    const response = await fetch(
-      `https://api.astronomyapi.com/api/v2/bodies/positions?${params}`,
-      { headers: { Authorization: `Basic ${auth}` } },
-    );
+    const response = await fetch(functionUrl('astronomy-proxy', params), {
+      headers: await functionAuthHeaders(),
+    });
 
     if (!response.ok) {
       console.warn('Astronomy API error:', response.status, await response.text());
@@ -314,7 +309,9 @@ export async function analyzeSighting(
   longitude: number,
   sightedAt: string,
 ) {
-  console.log('Running analysis for sighting:', sightingId, { latitude, longitude, sightedAt });
+  if (__DEV__) {
+    console.log('Running analysis for sighting:', sightingId, { latitude, longitude, sightedAt });
+  }
 
   const analysis = await computeSightingAnalysis(latitude, longitude, sightedAt);
   if (!analysis) return null;
@@ -333,10 +330,12 @@ export async function analyzeSighting(
 
   if (updateError) {
     console.error('Failed to update sighting:', updateError);
-  } else {
+  } else if (__DEV__) {
     console.log('Sighting updated successfully:', sightingId, status);
   }
 
-  console.log('Analysis complete:', { sightingId, status, matchedFlight, matchedCelestial, matchedSatellite });
+  if (__DEV__) {
+    console.log('Analysis complete:', { sightingId, status, matchedFlight, matchedCelestial, matchedSatellite });
+  }
   return analysis;
 }

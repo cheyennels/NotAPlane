@@ -9,7 +9,8 @@ import { Fonts } from "@/constants/fonts";
 import { getDeviceLocation, type DeviceLocation } from "@/lib/getDeviceLocation";
 import { router } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { notify } from "@/lib/notify";
 import { useReport } from "../../context/ReportContext";
 
 export default function StepTwoWhere() {
@@ -64,7 +65,7 @@ export default function StepTwoWhere() {
     if (useCurrentLocation) {
       const location = await applyCurrentLocation();
       if (!location) {
-        Alert.alert(
+        notify(
           "Current location unavailable",
           "Allow location access or turn off the toggle and place the pin manually.",
         );

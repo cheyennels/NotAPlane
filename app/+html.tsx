@@ -17,6 +17,8 @@ export default function Root({ children }: PropsWithChildren) {
         />
         <title>NotAPlane</title>
         <ScrollViewStyleReset />
+        {/* Static, hardcoded CSS only — never interpolate user/dynamic content
+            into this dangerouslySetInnerHTML block (stored-XSS risk). */}
         <style
           dangerouslySetInnerHTML={{
             __html: `

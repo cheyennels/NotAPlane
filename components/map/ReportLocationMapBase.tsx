@@ -20,6 +20,19 @@ export default function ReportLocationMapBase({
   onCoordinateChange,
   style,
 }: ReportLocationMapProps) {
+  // Hooks must run on every render, before any of the early returns below
+  // (rules-of-hooks). cameraRef stays null until the native map mounts, so the
+  // effect is a safe no-op when a fallback is rendered instead.
+  const cameraRef = useRef<{ setCamera: (config: object) => void } | null>(null);
+
+  useEffect(() => {
+    cameraRef.current?.setCamera({
+      centerCoordinate: coordinate,
+      zoomLevel: 11,
+      animationDuration: 250,
+    });
+  }, [coordinate]);
+
   const token = getMapboxAccessToken();
 
   if (!token) {
@@ -51,15 +64,6 @@ export default function ReportLocationMapBase({
   const MapView = Mapbox.MapView ?? Mapbox.default?.MapView;
   const Camera = Mapbox.Camera ?? Mapbox.default?.Camera;
   const MarkerView = Mapbox.MarkerView ?? Mapbox.default?.MarkerView;
-  const cameraRef = useRef<{ setCamera: (config: object) => void } | null>(null);
-
-  useEffect(() => {
-    cameraRef.current?.setCamera({
-      centerCoordinate: coordinate,
-      zoomLevel: 11,
-      animationDuration: 250,
-    });
-  }, [coordinate]);
 
   return (
     <MapView

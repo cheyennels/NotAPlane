@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import { functionAuthHeaders, functionUrl } from "./edgeFetch";
 
 export const TLE_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 export const VISUAL_SATELLITE_GROUP = "visual";
@@ -28,14 +29,17 @@ type CachedCatalog = { satellites: SatelliteTLE[]; fetchedAt: number };
 const tleCache = new Map<number, CachedTLE>();
 let visualCatalogCache: CachedCatalog | null = null;
 
-function tleApiUrl(params: Record<string, string>): string {
-  const query = new URLSearchParams(params).toString();
+// TLE has no secret. On web we go through the authenticated opensky-proxy Edge
+// Function (it also handles TLE) so the browser isn't blocked by Celestrak CORS;
+// native can call Celestrak directly.
+async function fetchTleText(params: Record<string, string>): Promise<Response> {
   if (Platform.OS === "web") {
-    // Route through the working Expo API proxy (opensky+api.ts also handles TLE).
-    return `/api/opensky?${query}`;
+    return fetch(functionUrl("opensky-proxy", new URLSearchParams(params)), {
+      headers: await functionAuthHeaders(),
+    });
   }
   const celestrak = new URLSearchParams({ ...params, FORMAT: "TLE" });
-  return `https://celestrak.org/NORAD/elements/gp.php?${celestrak}`;
+  return fetch(`https://celestrak.org/NORAD/elements/gp.php?${celestrak}`);
 }
 
 function isValidTleText(text: string): boolean {
@@ -80,7 +84,7 @@ export async function fetchSatelliteGroup(
   }
 
   try {
-    const res = await fetch(tleApiUrl({ group }));
+    const res = await fetchTleText({ group });
     if (!res.ok) return visualCatalogCache?.satellites ?? [];
 
     const text = await res.text();

@@ -9,7 +9,9 @@ import { Fonts } from "@/constants/fonts";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
+  Alert,
   Image,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -108,7 +110,52 @@ export default function ProfileScreen() {
       setCorroborations(count || 0);
     }
   }
+  const [deleting, setDeleting] = useState(false);
+
   async function handleLogout() {
+    await supabase.auth.signOut();
+    router.replace("/(auth)" as any);
+  }
+
+  function confirmDeleteAccount(): Promise<boolean> {
+    const message =
+      "This permanently erases your reports, photos, and profile. This cannot be undone.";
+    if (Platform.OS === "web") {
+      return Promise.resolve(
+        typeof window !== "undefined" &&
+          window.confirm(`Delete your account?\n\n${message}`),
+      );
+    }
+    return new Promise((resolve) => {
+      Alert.alert("Delete Account", message, [
+        { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+        { text: "Delete", style: "destructive", onPress: () => resolve(true) },
+      ]);
+    });
+  }
+
+  async function handleDeleteAccount() {
+    if (deleting) return;
+    const confirmed = await confirmDeleteAccount();
+    if (!confirmed) return;
+
+    setDeleting(true);
+    const { error } = await supabase.functions.invoke("delete-account", {
+      method: "POST",
+    });
+    setDeleting(false);
+
+    if (error) {
+      if (Platform.OS === "web") {
+        if (typeof window !== "undefined") {
+          window.alert("Could not delete your account. Please try again.");
+        }
+      } else {
+        Alert.alert("Error", "Could not delete your account. Please try again.");
+      }
+      return;
+    }
+
     await supabase.auth.signOut();
     router.replace("/(auth)" as any);
   }
@@ -205,7 +252,13 @@ export default function ProfileScreen() {
           variant="accent"
           onPress={() => router.push("/(tabs)/profile/change-password" as any)}
         />
-        <Button label="Delete Account" variant="danger" />
+        <Button
+          label="Delete Account"
+          variant="danger"
+          onPress={handleDeleteAccount}
+          loading={deleting}
+          disabled={deleting}
+        />
       </View>
       {editingLocation && (
         <View style={styles.editModal}>
