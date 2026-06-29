@@ -9,7 +9,6 @@ import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-  Alert,
   Image,
   StyleSheet,
   Text,
@@ -17,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { notify } from "@/lib/notify";
 import { useReport } from "../../context/ReportContext";
 import { cachePhotoAsset } from "../../lib/uploadPhoto";
 
@@ -70,7 +70,7 @@ export default function StepThreeWhat() {
   async function pickImage() {
     const remaining = MAX_PHOTOS - photos.length;
     if (remaining <= 0) {
-      Alert.alert("Photo limit", `You can attach up to ${MAX_PHOTOS} photos.`);
+      notify("Photo limit", `You can attach up to ${MAX_PHOTOS} photos.`);
       return;
     }
 
@@ -101,7 +101,7 @@ export default function StepThreeWhat() {
       setPhotos((prev) => [...prev, ...accepted]);
     }
     if (skippedTooLarge) {
-      Alert.alert(
+      notify(
         "Photo too large",
         "Some photos exceed the 5 MB limit and were skipped.",
       );

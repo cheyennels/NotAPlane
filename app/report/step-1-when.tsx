@@ -5,8 +5,9 @@ import FormField from "@/components/ui/FormField";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
 import { router } from "expo-router";
+import { notify } from "@/lib/notify";
 import { useState } from "react";
-import { Alert, StyleSheet, Text } from "react-native";
+import { StyleSheet, Text } from "react-native";
 import { useReport } from "../../context/ReportContext";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -42,15 +43,15 @@ export default function StepOneWhen() {
     const ts = date.getTime();
     const now = Date.now();
     if (!Number.isFinite(ts)) {
-      Alert.alert("Invalid date", "Please enter a valid date and time.");
+      notify("Invalid date", "Please enter a valid date and time.");
       return;
     }
     if (ts > now + DAY_MS) {
-      Alert.alert("Invalid date", "The sighting date can't be in the future.");
+      notify("Invalid date", "The sighting date can't be in the future.");
       return;
     }
     if (ts < now - 365 * DAY_MS) {
-      Alert.alert(
+      notify(
         "Invalid date",
         "Please enter a sighting from within the last year.",
       );

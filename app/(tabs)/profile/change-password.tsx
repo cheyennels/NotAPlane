@@ -5,8 +5,9 @@ import FormField from "@/components/ui/FormField";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
 import { getAuthRedirectUrl } from "@/lib/auth-redirect";
+import { notify } from "@/lib/notify";
 import { useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { supabase } from "../../../lib/supabase";
 
 export default function ChangePasswordScreen() {
@@ -38,7 +39,7 @@ export default function ChangePasswordScreen() {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user?.email) {
-      Alert.alert("Error", "You must be signed in to change your password.");
+      notify("Error", "You must be signed in to change your password.");
       setLoading(false);
       return;
     }
@@ -48,7 +49,7 @@ export default function ChangePasswordScreen() {
       password: currentPassword,
     });
     if (reauthError) {
-      Alert.alert("Incorrect Password", "Your current password is incorrect.");
+      notify("Incorrect Password", "Your current password is incorrect.");
       setLoading(false);
       return;
     }
@@ -58,7 +59,7 @@ export default function ChangePasswordScreen() {
     });
 
     if (error) {
-      Alert.alert("Error", error.message);
+      notify("Error", error.message);
     } else {
       setSuccess(true);
     }
@@ -74,7 +75,7 @@ export default function ChangePasswordScreen() {
     const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
       redirectTo: getAuthRedirectUrl("auth/reset"),
     });
-    Alert.alert(
+    notify(
       error ? "Error" : "Check your email",
       error
         ? error.message

@@ -5,7 +5,6 @@ import { Fonts } from "@/constants/fonts";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -13,6 +12,7 @@ import {
   Text,
 } from "react-native";
 import { getAuthRedirectUrl } from "@/lib/auth-redirect";
+import { notify } from "@/lib/notify";
 import { validatePassword } from "@/lib/password";
 import { supabase } from "../../lib/supabase";
 
@@ -26,11 +26,11 @@ export default function SignUpScreen() {
   function checkPassword() {
     const passwordError = validatePassword(password);
     if (passwordError) {
-      Alert.alert("Invalid Password", passwordError);
+      notify("Invalid Password", passwordError);
       return false;
     }
     if (password !== confirmPassword) {
-      Alert.alert("Password Mismatch", "Passwords do not match.");
+      notify("Password Mismatch", "Passwords do not match.");
       return false;
     }
     return true;
@@ -50,7 +50,7 @@ export default function SignUpScreen() {
     });
 
     if (error) {
-      Alert.alert("Sign Up Failed", error.message);
+      notify("Sign Up Failed", error.message);
       setLoading(false);
       return;
     }

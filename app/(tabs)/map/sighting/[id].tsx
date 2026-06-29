@@ -8,7 +8,6 @@ import { getStatusColor, getStatusLabel } from "@/lib/status";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
-  Alert,
   Image,
   Modal,
   Platform,
@@ -19,6 +18,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { notify } from "@/lib/notify";
 import { supabase } from "../../../../lib/supabase";
 
 type Sighting = {
@@ -83,7 +83,7 @@ export default function SightingDetailScreen() {
         .maybeSingle();
 
       if (error || !data) {
-        Alert.alert("Error", "Could not load sighting.");
+        notify("Error", "Could not load sighting.");
         router.back();
       } else {
         setSighting(data as Sighting);

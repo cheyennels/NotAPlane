@@ -4,10 +4,11 @@ import Button from "@/components/ui/Button";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
 import { computeSightingAnalysis } from "@/lib/analysis";
+import { notify } from "@/lib/notify";
 import { uploadPhotos } from "@/lib/uploadPhoto";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { useReport } from "../../context/ReportContext";
 import { supabase } from "../../lib/supabase";
 
@@ -23,7 +24,7 @@ export default function StepFiveReview() {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      Alert.alert("Error", "You must be logged in to submit a sighting.");
+      notify("Error", "You must be logged in to submit a sighting.");
       setLoading(false);
       return;
     }
@@ -44,7 +45,7 @@ export default function StepFiveReview() {
     if (form.photoUris.length > 0) {
       const { urls, error: uploadError } = await uploadPhotos(form.photoUris, user.id);
       if (uploadError) {
-        Alert.alert("Upload Failed", uploadError);
+        notify("Upload Failed", uploadError);
         setLoading(false);
         return;
       }
@@ -73,7 +74,7 @@ export default function StepFiveReview() {
     });
 
     if (error) {
-      Alert.alert("Error", error.message);
+      notify("Error", error.message);
       setLoading(false);
       return;
     }

@@ -2,12 +2,12 @@ import Button from "@/components/ui/Button";
 import FormField from "@/components/ui/FormField";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
+import { notify } from "@/lib/notify";
 import { validatePassword } from "@/lib/password";
 import { supabase } from "@/lib/supabase";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -57,11 +57,11 @@ export default function ResetPasswordScreen() {
   async function handleReset() {
     const passwordError = validatePassword(password);
     if (passwordError) {
-      Alert.alert("Invalid Password", passwordError);
+      notify("Invalid Password", passwordError);
       return;
     }
     if (password !== confirmPassword) {
-      Alert.alert("Password Mismatch", "Passwords do not match.");
+      notify("Password Mismatch", "Passwords do not match.");
       return;
     }
 
@@ -70,13 +70,13 @@ export default function ResetPasswordScreen() {
     setLoading(false);
 
     if (error) {
-      Alert.alert("Error", error.message);
+      notify("Error", error.message);
       return;
     }
 
     // Force a fresh login with the new password everywhere.
     await supabase.auth.signOut();
-    Alert.alert("Password updated", "Please log in with your new password.");
+    notify("Password updated", "Please log in with your new password.");
     router.replace("/(auth)");
   }
 

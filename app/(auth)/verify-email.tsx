@@ -2,10 +2,11 @@ import Button from "@/components/ui/Button";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
 import { getAuthRedirectUrl } from "@/lib/auth-redirect";
+import { notify } from "@/lib/notify";
 import { supabase } from "@/lib/supabase";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 export default function VerifyEmailScreen() {
   const { email } = useLocalSearchParams<{ email?: string }>();
@@ -13,7 +14,7 @@ export default function VerifyEmailScreen() {
 
   async function handleResend() {
     if (!email) {
-      Alert.alert("Missing email", "Go back to sign up and try again.");
+      notify("Missing email", "Go back to sign up and try again.");
       return;
     }
 
@@ -28,11 +29,11 @@ export default function VerifyEmailScreen() {
     setSending(false);
 
     if (error) {
-      Alert.alert("Could not resend email", error.message);
+      notify("Could not resend email", error.message);
       return;
     }
 
-    Alert.alert("Email sent", "Check your inbox for a new confirmation link.");
+    notify("Email sent", "Check your inbox for a new confirmation link.");
   }
 
   return (

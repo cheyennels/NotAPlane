@@ -4,6 +4,7 @@ import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 import { getAuthRedirectUrl } from "@/lib/auth-redirect";
+import { notify } from "@/lib/notify";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
@@ -62,9 +63,9 @@ export default function LoginScreen() {
     });
 
     if (error) {
-      Alert.alert("Error", getAuthErrorMessage(error.message));
+      notify("Error", getAuthErrorMessage(error.message));
     } else {
-      Alert.alert(
+      notify(
         "Check your email",
         "If an account exists for that address, we sent a password reset link.",
       );
