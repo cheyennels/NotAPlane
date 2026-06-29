@@ -23,6 +23,17 @@ export default function SignUpScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Live validation feedback (✓/✗) as the user types.
+  const passwordError = validatePassword(password);
+  const passwordStatus: "default" | "error" | "success" =
+    password.length === 0 ? "default" : passwordError ? "error" : "success";
+  const confirmStatus: "default" | "error" | "success" =
+    confirmPassword.length === 0
+      ? "default"
+      : confirmPassword === password
+        ? "success"
+        : "error";
+
   function checkPassword() {
     const passwordError = validatePassword(password);
     if (passwordError) {
@@ -116,6 +127,9 @@ export default function SignUpScreen() {
           value={password}
           onChangeText={setPassword}
           secureTextEntry
+          status={passwordStatus}
+          statusIcon
+          errorText={password.length > 0 && passwordError ? passwordError : undefined}
           hint="*min 8 chars with an uppercase letter, number, and special character"
         />
 
@@ -126,6 +140,11 @@ export default function SignUpScreen() {
           value={confirmPassword}
           onChangeText={setConfirmPassword}
           secureTextEntry
+          status={confirmStatus}
+          statusIcon
+          errorText={
+            confirmStatus === "error" ? "Passwords do not match" : undefined
+          }
         />
 
         <Button
