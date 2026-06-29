@@ -9,31 +9,63 @@ import { useNearbyCelestial, CELESTIAL_REFERENCE_ZOOM } from "@/hooks/useCelesti
 import { useNearbyFlights } from "@/hooks/useFlightData";
 import { supabase } from "@/lib/supabase";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 type Sighting = MapSighting & {
   created_at: string;
 };
 
+// Default map center (Minneapolis). The camera starts here; the live fetch
+// center follows the user as they pan.
+const INITIAL_CENTER = { latitude: 44.9778, longitude: -93.265 };
+const CENTER_DEBOUNCE_MS = 600;
+
 export default function MapScreen() {
   const [sightings, setSightings] = useState<Sighting[]>([]);
   const [allSightings, setAllSightings] = useState<Sighting[]>([]);
   const [mapZoom, setMapZoom] = useState(CELESTIAL_REFERENCE_ZOOM);
   const { filters } = useFilters();
-  // Minneapolis center coordinates
-  const MAP_CENTER = { latitude: 44.9778, longitude: -93.265 };
+
+  // `center` drives the flight/celestial queries and follows the map as the user
+  // pans. Debounced so we don't refetch mid-gesture, and rounded to ~1km so tiny
+  // nudges don't trigger a new request.
+  const [center, setCenter] = useState(INITIAL_CENTER);
+  const centerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleCenterChange = useCallback(
+    (next: { latitude: number; longitude: number }) => {
+      if (centerTimer.current) clearTimeout(centerTimer.current);
+      centerTimer.current = setTimeout(() => {
+        const lat = Math.round(next.latitude * 100) / 100;
+        const lng = Math.round(next.longitude * 100) / 100;
+        setCenter((prev) =>
+          prev.latitude === lat && prev.longitude === lng
+            ? prev
+            : { latitude: lat, longitude: lng },
+        );
+      }, CENTER_DEBOUNCE_MS);
+    },
+    [],
+  );
+
+  useEffect(
+    () => () => {
+      if (centerTimer.current) clearTimeout(centerTimer.current);
+    },
+    [],
+  );
 
   const { flights, flightTrails, error, usingMock, usingCached } = useNearbyFlights(
-    MAP_CENTER.latitude,
-    MAP_CENTER.longitude,
+    center.latitude,
+    center.longitude,
     100,
     filters.showFlightPaths,
   );
 
   const { bodies: celestialBodies, satellites, satellitesLoading } = useNearbyCelestial(
-    MAP_CENTER.latitude,
-    MAP_CENTER.longitude,
+    center.latitude,
+    center.longitude,
     filters.showCelestial,
     filters.showSatellites,
   );
@@ -124,9 +156,10 @@ export default function MapScreen() {
         flights={filters.showFlightPaths ? flights : []}
         flightTrails={filters.showFlightPaths ? flightTrails : []}
         celestialBodies={visibleCelestial}
-        centerLatitude={MAP_CENTER.latitude}
-        centerLongitude={MAP_CENTER.longitude}
+        centerLatitude={INITIAL_CENTER.latitude}
+        centerLongitude={INITIAL_CENTER.longitude}
         onZoomChange={setMapZoom}
+        onCenterChange={handleCenterChange}
         onPinPress={(id: string) =>
           router.push(`/(tabs)/map/sighting/${id}` as any)
         }

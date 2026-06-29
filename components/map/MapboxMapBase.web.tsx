@@ -41,6 +41,7 @@ type MapboxMapProps = {
   centerLongitude?: number;
   onPinPress?: (id: string) => void;
   onZoomChange?: (zoom: number) => void;
+  onCenterChange?: (center: { latitude: number; longitude: number }) => void;
 };
 
 function hideMapboxControls(container: HTMLElement) {
@@ -237,6 +238,7 @@ export default function MapboxMapBase({
   centerLatitude = DEFAULT_CENTER[1],
   centerLongitude = DEFAULT_CENTER[0],
   onZoomChange,
+  onCenterChange,
 }: MapboxMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -245,6 +247,7 @@ export default function MapboxMapBase({
   const celestialBodiesRef = useRef(celestialBodies);
   const celestialBodyIdsRef = useRef("");
   const onZoomChangeRef = useRef(onZoomChange);
+  const onCenterChangeRef = useRef(onCenterChange);
   const mapReadyRef = useRef(false);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
   const activeFlightRef = useRef<[number, number] | null>(null);
@@ -253,6 +256,7 @@ export default function MapboxMapBase({
 
   celestialBodiesRef.current = celestialBodies;
   onZoomChangeRef.current = onZoomChange;
+  onCenterChangeRef.current = onCenterChange;
 
   const syncCelestialMarkers = useCallback(() => {
     const map = mapRef.current;
@@ -334,6 +338,13 @@ export default function MapboxMapBase({
       tooltipRef.current.style.top = `${point.y}px`;
     };
 
+    // Report the new center after the user finishes panning so flights/celestial
+    // refetch for wherever they've moved to.
+    const reportCenter = () => {
+      const c = map.getCenter();
+      onCenterChangeRef.current?.({ latitude: c.lat, longitude: c.lng });
+    };
+
     const onMouseEnter = (
       event: mapboxgl.MapMouseEvent & {
         features?: mapboxgl.MapboxGeoJSONFeature[];
@@ -374,6 +385,7 @@ export default function MapboxMapBase({
       map.on("zoom", repositionTooltip);
       map.on("zoom", syncCelestialMarkers);
       map.on("zoomend", syncCelestialMarkers);
+      map.on("moveend", reportCenter);
       mapReadyRef.current = true;
       setMapReady(true);
       map.resize();
@@ -400,6 +412,7 @@ export default function MapboxMapBase({
       map.off("zoom", repositionTooltip);
       map.off("zoom", syncCelestialMarkers);
       map.off("zoomend", syncCelestialMarkers);
+      map.off("moveend", reportCenter);
       tooltipEl.remove();
       tooltipRef.current = null;
       activeFlightRef.current = null;

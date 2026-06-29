@@ -52,6 +52,7 @@ type MapboxMapProps = {
   centerLongitude?: number;
   onPinPress?: (id: string) => void;
   onZoomChange?: (zoom: number) => void;
+  onCenterChange?: (center: { latitude: number; longitude: number }) => void;
 };
 
 export default function MapboxMapBase({
@@ -64,6 +65,7 @@ export default function MapboxMapBase({
   centerLongitude = DEFAULT_CENTER[0],
   onPinPress,
   onZoomChange,
+  onCenterChange,
 }: MapboxMapProps) {
   const [selectedFlight, setSelectedFlight] = useState<OpenSkyFlight | null>(
     null,
@@ -128,7 +130,11 @@ export default function MapboxMapBase({
       scaleBarEnabled={false}
       onPress={() => setSelectedFlight(null)}
       onCameraChanged={(event: {
-        properties?: { zoom?: number; zoomLevel?: number };
+        properties?: {
+          zoom?: number;
+          zoomLevel?: number;
+          center?: [number, number];
+        };
         zoom?: number;
       }) => {
         const zoom =
@@ -136,6 +142,10 @@ export default function MapboxMapBase({
         if (typeof zoom === "number") {
           setMapZoom((prev) => (Math.abs(prev - zoom) < 0.001 ? prev : zoom));
           onZoomChange?.(zoom);
+        }
+        const center = event.properties?.center;
+        if (center && center.length === 2) {
+          onCenterChange?.({ latitude: center[1], longitude: center[0] });
         }
       }}
     >
