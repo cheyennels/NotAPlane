@@ -246,18 +246,31 @@ export default function ProfileScreen() {
       </ScrollView>
 
       <View style={styles.btnGroup}>
-        <Button label="Logout" variant="outline" onPress={handleLogout} />
-        <Button
-          label="Change Password"
-          variant="accent"
-          onPress={() => router.push("/(tabs)/profile/change-password" as any)}
-        />
+        {/* Routine actions side by side; destructive Delete kept separate below
+            so it isn't one mis-tap away from Logout. */}
+        <View style={styles.btnRow}>
+          <Button
+            label="Logout"
+            variant="outline"
+            onPress={handleLogout}
+            style={styles.rowBtn}
+            labelStyle={styles.rowBtnLabel}
+          />
+          <Button
+            label="Change Password"
+            variant="accent"
+            onPress={() => router.push("/(tabs)/profile/change-password" as any)}
+            style={styles.rowBtn}
+            labelStyle={styles.rowBtnLabel}
+          />
+        </View>
         <Button
           label="Delete Account"
           variant="danger"
           onPress={handleDeleteAccount}
           loading={deleting}
           disabled={deleting}
+          style={styles.deleteBtn}
         />
       </View>
       {editingLocation && (
@@ -354,6 +367,21 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 32,
     backgroundColor: Colors.black,
+  },
+  btnRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: 10,
+  },
+  rowBtn: {
+    flex: 1,
+    paddingHorizontal: 8,
+  },
+  rowBtnLabel: {
+    fontSize: 11,
+  },
+  deleteBtn: {
+    marginTop: 6,
   },
   editModal: {
     position: "absolute",
