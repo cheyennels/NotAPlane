@@ -329,6 +329,17 @@ let mockInitialized = false;
 let lastAdvanceAt = Date.now();
 let mockActive = false;
 
+// The curated demo flights are arranged around Minneapolis. To make demo data
+// useful everywhere, we translate the whole cluster to wherever the user is
+// looking. `mockCenterOffset` holds that translation so flight markers and their
+// trails stay aligned (it's refreshed each time we serve flights for an area).
+const MOCK_ORIGIN = { latitude: 44.9778, longitude: -93.265 };
+let mockCenterOffset = { dLat: 0, dLng: 0 };
+
+function offsetCoord(lat: number, lng: number): [number, number] {
+  return [lat + mockCenterOffset.dLat, lng + mockCenterOffset.dLng];
+}
+
 export function isMockFlightsForced(): boolean {
   return process.env.EXPO_PUBLIC_USE_MOCK_FLIGHTS === "true";
 }
@@ -516,15 +527,28 @@ export function getMockFlightsInArea(
   advanceMockFlights();
   mockActive = true;
 
+  // Relocate the demo cluster to the center of the requested viewport so demo
+  // traffic appears wherever the user has panned, not only over Minneapolis.
+  mockCenterOffset = {
+    dLat: (minLat + maxLat) / 2 - MOCK_ORIGIN.latitude,
+    dLng: (minLng + maxLng) / 2 - MOCK_ORIGIN.longitude,
+  };
+
   return mockFlights
+    .map((flight) => {
+      const [latitude, longitude] = offsetCoord(
+        flight.latitude,
+        flight.longitude,
+      );
+      return toOpenSkyFlight({ ...flight, latitude, longitude });
+    })
     .filter(
       (flight) =>
         flight.latitude >= minLat &&
         flight.latitude <= maxLat &&
         flight.longitude >= minLng &&
         flight.longitude <= maxLng,
-    )
-    .map(toOpenSkyFlight);
+    );
 }
 
 export function getMockFlightPath(
@@ -535,5 +559,18 @@ export function getMockFlightPath(
     (candidate) => candidate.icao24.toLowerCase() === icao24.toLowerCase(),
   );
   if (!flight) return null;
-  return buildMockFlightTrail(flight);
+
+  // Apply the current viewport offset to both endpoints so the trail lines up
+  // with the relocated marker.
+  const [latitude, longitude] = offsetCoord(flight.latitude, flight.longitude);
+  const [originLatitude, originLongitude] = offsetCoord(
+    flight.originLatitude,
+    flight.originLongitude,
+  );
+  return buildMockFlightTrail({
+    latitude,
+    longitude,
+    originLatitude,
+    originLongitude,
+  });
 }
