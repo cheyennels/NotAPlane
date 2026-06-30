@@ -113,7 +113,10 @@ export default function ChangePasswordScreen() {
           value={newPassword}
           onChangeText={setNewPassword}
           secureTextEntry
-          status={newPassword.length > 0 && allMet ? "success" : "default"}
+          status={
+            newPassword.length === 0 ? "default" : allMet ? "success" : "error"
+          }
+          statusIcon
           hint="*min 8 chars with an uppercase letter, number, and special character"
         />
 
@@ -130,6 +133,7 @@ export default function ChangePasswordScreen() {
                 ? "success"
                 : "error"
           }
+          statusIcon
           errorText={
             confirmPassword.length > 0 && !passwordsMatch
               ? "*passwords do not match"
