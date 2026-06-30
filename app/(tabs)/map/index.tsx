@@ -9,31 +9,64 @@ import { useNearbyCelestial, CELESTIAL_REFERENCE_ZOOM } from "@/hooks/useCelesti
 import { useNearbyFlights } from "@/hooks/useFlightData";
 import { supabase } from "@/lib/supabase";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 type Sighting = MapSighting & {
   created_at: string;
 };
+
+// Default map center (Minneapolis). The camera starts here; the live fetch
+// center follows the user as they pan.
+const INITIAL_CENTER = { latitude: 44.9778, longitude: -93.265 };
+const CENTER_DEBOUNCE_MS = 600;
 
 export default function MapScreen() {
   const [sightings, setSightings] = useState<Sighting[]>([]);
   const [allSightings, setAllSightings] = useState<Sighting[]>([]);
   const [mapZoom, setMapZoom] = useState(CELESTIAL_REFERENCE_ZOOM);
   const { filters } = useFilters();
-  // Minneapolis center coordinates
-  const MAP_CENTER = { latitude: 44.9778, longitude: -93.265 };
 
-  const { flights, flightTrails, error, usingMock, usingCached } = useNearbyFlights(
-    MAP_CENTER.latitude,
-    MAP_CENTER.longitude,
-    100,
-    filters.showFlightPaths,
+  // `center` drives the flight/celestial queries and follows the map as the user
+  // pans. Debounced so we don't refetch mid-gesture, and rounded to ~1km so tiny
+  // nudges don't trigger a new request.
+  const [center, setCenter] = useState(INITIAL_CENTER);
+  const centerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleCenterChange = useCallback(
+    (next: { latitude: number; longitude: number }) => {
+      if (centerTimer.current) clearTimeout(centerTimer.current);
+      centerTimer.current = setTimeout(() => {
+        const lat = Math.round(next.latitude * 100) / 100;
+        const lng = Math.round(next.longitude * 100) / 100;
+        setCenter((prev) =>
+          prev.latitude === lat && prev.longitude === lng
+            ? prev
+            : { latitude: lat, longitude: lng },
+        );
+      }, CENTER_DEBOUNCE_MS);
+    },
+    [],
   );
 
+  useEffect(
+    () => () => {
+      if (centerTimer.current) clearTimeout(centerTimer.current);
+    },
+    [],
+  );
+
+  const { flights, flightTrails, loading: flightsLoading, error, usingMock, usingCached } =
+    useNearbyFlights(
+      center.latitude,
+      center.longitude,
+      100,
+      filters.showFlightPaths,
+    );
+
   const { bodies: celestialBodies, satellites, satellitesLoading } = useNearbyCelestial(
-    MAP_CENTER.latitude,
-    MAP_CENTER.longitude,
+    center.latitude,
+    center.longitude,
     filters.showCelestial,
     filters.showSatellites,
   );
@@ -42,6 +75,19 @@ export default function MapScreen() {
     ...(filters.showCelestial ? celestialBodies : []),
     ...(filters.showSatellites ? satellites : []),
   ];
+
+  // Show a "Loading aircraft" notice while a fetch is in flight, but only after a
+  // short delay so the fast cached polls (~every 10s) don't flicker it — it
+  // appears for the slower fetches (initial load, panning to a new area).
+  const [showFlightLoading, setShowFlightLoading] = useState(false);
+  useEffect(() => {
+    if (!flightsLoading) {
+      setShowFlightLoading(false);
+      return;
+    }
+    const timer = setTimeout(() => setShowFlightLoading(true), 400);
+    return () => clearTimeout(timer);
+  }, [flightsLoading]);
 
   const fetchSightings = useCallback(async () => {
     // community_sightings is the privacy-safe view: rounded coordinates, no
@@ -114,7 +160,7 @@ export default function MapScreen() {
 
   const showFlightStatus =
     filters.showFlightPaths &&
-    (Boolean(error) || usingMock || usingCached || flights.length === 0);
+    (Boolean(error) || usingMock || usingCached || showFlightLoading);
 
   return (
     <View style={styles.container}>
@@ -124,9 +170,10 @@ export default function MapScreen() {
         flights={filters.showFlightPaths ? flights : []}
         flightTrails={filters.showFlightPaths ? flightTrails : []}
         celestialBodies={visibleCelestial}
-        centerLatitude={MAP_CENTER.latitude}
-        centerLongitude={MAP_CENTER.longitude}
+        centerLatitude={INITIAL_CENTER.latitude}
+        centerLongitude={INITIAL_CENTER.longitude}
         onZoomChange={setMapZoom}
+        onCenterChange={handleCenterChange}
         onPinPress={(id: string) =>
           router.push(`/(tabs)/map/sighting/${id}` as any)
         }
@@ -143,21 +190,22 @@ export default function MapScreen() {
         </View>
       ) : null}
 
-      {filters.showFlightPaths && usingMock ? (
+      {filters.showFlightPaths && usingMock && !showFlightLoading ? (
         <View style={styles.flightDemo}>
           <Text style={styles.flightDemoText}>Demo flight data</Text>
         </View>
       ) : null}
 
-      {filters.showFlightPaths && usingCached && !usingMock ? (
+      {filters.showFlightPaths && usingCached && !usingMock && !showFlightLoading ? (
         <View style={styles.flightCached}>
           <Text style={styles.flightCachedText}>Saved flight data</Text>
         </View>
       ) : null}
 
-      {filters.showFlightPaths && !error && !usingMock && !usingCached && flights.length === 0 ? (
-        <View style={styles.flightError}>
-          <Text style={styles.flightErrorText}>Loading aircraft…</Text>
+      {filters.showFlightPaths && showFlightLoading ? (
+        <View style={styles.flightLoading}>
+          <ActivityIndicator size="small" color={Colors.green} />
+          <Text style={styles.flightLoadingText}>Loading aircraft…</Text>
         </View>
       ) : null}
 
@@ -323,6 +371,26 @@ const styles = StyleSheet.create({
   },
   statusBannerOffset: {
     top: 116,
+  },
+  flightLoading: {
+    position: "absolute",
+    top: 80,
+    left: 16,
+    maxWidth: "60%",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "rgba(20,20,20,0.92)",
+    borderWidth: 2,
+    borderColor: Colors.green,
+    padding: 8,
+  },
+  flightLoadingText: {
+    fontFamily: Fonts.mono,
+    fontSize: 9,
+    color: Colors.green,
+    letterSpacing: 0.5,
+    lineHeight: 14,
   },
   flightErrorText: {
     fontFamily: Fonts.mono,
