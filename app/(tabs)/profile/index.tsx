@@ -6,6 +6,8 @@ import StatsRow from "@/components/ui/StatsRow";
 import ToggleRow from "@/components/ui/ToggleRow";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
+import { geocodeLocation } from "@/lib/geocode";
+import { notify } from "@/lib/notify";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -166,12 +168,26 @@ export default function ProfileScreen() {
     } = await supabase.auth.getUser();
     if (!user) return;
 
-    await supabase
-      .from("profiles")
-      .upsert({ id: user.id, location: locationInput });
+    const trimmed = locationInput.trim();
+    // Resolve the text to coordinates so the map can open centered on it.
+    const coords = trimmed ? await geocodeLocation(trimmed) : null;
+
+    await supabase.from("profiles").upsert({
+      id: user.id,
+      location: locationInput,
+      latitude: coords?.latitude ?? null,
+      longitude: coords?.longitude ?? null,
+    });
 
     setUserLocation(locationInput);
     setEditingLocation(false);
+
+    if (trimmed && !coords) {
+      notify(
+        "Location saved",
+        'We couldn\'t place that on the map, so your map view won\'t change. Try a city and state, e.g. "Seattle, WA".',
+      );
+    }
   }
 
   return (

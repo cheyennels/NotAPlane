@@ -16,9 +16,9 @@ type Sighting = MapSighting & {
   created_at: string;
 };
 
-// Default map center (Minneapolis). The camera starts here; the live fetch
-// center follows the user as they pan.
-const INITIAL_CENTER = { latitude: 44.9778, longitude: -93.265 };
+// Fallback map center (Minneapolis) used when the account has no saved
+// location. Otherwise the map opens on the user's geocoded account location.
+const FALLBACK_CENTER = { latitude: 44.9778, longitude: -93.265 };
 const CENTER_DEBOUNCE_MS = 600;
 
 export default function MapScreen() {
@@ -30,8 +30,47 @@ export default function MapScreen() {
   // `center` drives the flight/celestial queries and follows the map as the user
   // pans. Debounced so we don't refetch mid-gesture, and rounded to ~1km so tiny
   // nudges don't trigger a new request.
-  const [center, setCenter] = useState(INITIAL_CENTER);
+  const [center, setCenter] = useState(FALLBACK_CENTER);
   const centerTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // The map opens centered on the user's account location (geocoded on save).
+  // null until loaded, so we render a spinner rather than flashing Minneapolis.
+  const [homeCenter, setHomeCenter] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const homeRef = useRef<{ latitude: number; longitude: number } | null>(null);
+
+  const loadHomeCenter = useCallback(async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    let coords = FALLBACK_CENTER;
+    const userId = session?.user?.id;
+    if (userId) {
+      const { data } = await supabase
+        .from("profiles")
+        .select("latitude, longitude")
+        .eq("id", userId)
+        .maybeSingle();
+      if (data?.latitude != null && data?.longitude != null) {
+        coords = { latitude: data.latitude, longitude: data.longitude };
+      }
+    }
+    const prev = homeRef.current;
+    // Only recenter when the account location actually changed, so returning to
+    // the map tab after panning elsewhere doesn't yank the view back.
+    if (
+      prev &&
+      prev.latitude === coords.latitude &&
+      prev.longitude === coords.longitude
+    ) {
+      return;
+    }
+    homeRef.current = coords;
+    setHomeCenter(coords);
+    setCenter(coords);
+  }, []);
 
   const handleCenterChange = useCallback(
     (next: { latitude: number; longitude: number }) => {
@@ -107,7 +146,8 @@ export default function MapScreen() {
   useFocusEffect(
     useCallback(() => {
       void fetchSightings();
-    }, [fetchSightings]),
+      void loadHomeCenter();
+    }, [fetchSightings, loadHomeCenter]),
   );
 
   useEffect(() => {
@@ -164,20 +204,27 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container}>
-      <MapboxMap
-        style={styles.map}
-        sightings={sightings}
-        flights={filters.showFlightPaths ? flights : []}
-        flightTrails={filters.showFlightPaths ? flightTrails : []}
-        celestialBodies={visibleCelestial}
-        centerLatitude={INITIAL_CENTER.latitude}
-        centerLongitude={INITIAL_CENTER.longitude}
-        onZoomChange={setMapZoom}
-        onCenterChange={handleCenterChange}
-        onPinPress={(id: string) =>
-          router.push(`/(tabs)/map/sighting/${id}` as any)
-        }
-      />
+      {homeCenter ? (
+        <MapboxMap
+          key={`${homeCenter.latitude},${homeCenter.longitude}`}
+          style={styles.map}
+          sightings={sightings}
+          flights={filters.showFlightPaths ? flights : []}
+          flightTrails={filters.showFlightPaths ? flightTrails : []}
+          celestialBodies={visibleCelestial}
+          centerLatitude={homeCenter.latitude}
+          centerLongitude={homeCenter.longitude}
+          onZoomChange={setMapZoom}
+          onCenterChange={handleCenterChange}
+          onPinPress={(id: string) =>
+            router.push(`/(tabs)/map/sighting/${id}` as any)
+          }
+        />
+      ) : (
+        <View style={[styles.map, styles.mapLoading]}>
+          <ActivityIndicator color={Colors.green} />
+        </View>
+      )}
       {visibleCelestial.length > 0 && mapZoom >= CELESTIAL_REFERENCE_ZOOM && (
         <View style={styles.skyCompass}>
           <SkyCompass bodies={visibleCelestial.filter((b) => b.altitude > 5)} />
@@ -276,6 +323,11 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  mapLoading: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Colors.black,
   },
   legend: {
     position: "absolute",
