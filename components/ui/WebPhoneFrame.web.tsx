@@ -39,8 +39,26 @@ export default function WebPhoneFrame({ children }: WebPhoneFrameProps) {
         </Text>
       </View>
 
-      <View style={[styles.phoneWrap, { transform: [{ scale }] }]}>
-        <View style={styles.bezel}>
+      <View
+        style={[
+          styles.phoneWrap,
+          {
+            width: (PHONE_WIDTH + 24) * scale,
+            height: PHONE_BEZEL_HEIGHT * scale,
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.bezel,
+            {
+              width: PHONE_WIDTH + 24,
+              alignSelf: "flex-start",
+              transform: [{ scale }],
+              transformOrigin: "top left",
+            },
+          ]}
+        >
           <View style={styles.notch} />
           <View style={styles.screen}>
             <View style={styles.appRoot}>{children}</View>
@@ -91,7 +109,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   phoneWrap: {
-    width: PHONE_WIDTH + 24,
+    overflow: "visible" as "visible",
   },
   bezel: {
     borderRadius: 44,
