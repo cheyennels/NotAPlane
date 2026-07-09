@@ -1,6 +1,6 @@
 import { functionAuthHeaders, functionUrl } from "@/lib/edgeFetch";
 import { getTrackedSatellitePositions } from "@/lib/satellites";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const CELESTIAL_REFRESH_INTERVAL_MS = 300_000; // 5 minutes
 const SATELLITE_REFRESH_INTERVAL_MS = 30_000;
@@ -131,6 +131,11 @@ export function useNearbyCelestial(
   const [satellitesLoading, setSatellitesLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Latest map center, read inside the timer callbacks so refreshes use the
+  // current location without re-running (and flickering) every time you pan.
+  const observerRef = useRef({ latitude, longitude });
+  observerRef.current = { latitude, longitude };
+
   useEffect(() => {
     if (!enabledBodies || !latitude || !longitude) return;
 
@@ -240,7 +245,7 @@ export function useNearbyCelestial(
   }, [latitude, longitude, enabledBodies]);
 
   useEffect(() => {
-    if (!enabledSatellites || !latitude || !longitude) {
+    if (!enabledSatellites) {
       setSatellites([]);
       setSatellitesLoading(false);
       return;
@@ -249,10 +254,12 @@ export function useNearbyCelestial(
     let cancelled = false;
 
     async function fetchSatellites() {
+      const { latitude: lat, longitude: lng } = observerRef.current;
+      if (!lat || !lng) return;
       setSatellitesLoading(true);
       try {
         const now = new Date();
-        const tracked = await getTrackedSatellitePositions(latitude, longitude, now);
+        const tracked = await getTrackedSatellitePositions(lat, lng, now);
         if (cancelled) return;
 
         setSatellites(
@@ -272,13 +279,15 @@ export function useNearbyCelestial(
       }
     }
 
+    // Runs on enable + on the timer only — panning updates observerRef without
+    // re-running this effect, so satellites don't flicker as you move the map.
     fetchSatellites();
     const interval = setInterval(fetchSatellites, SATELLITE_REFRESH_INTERVAL_MS);
     return () => {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [latitude, longitude, enabledSatellites]);
+  }, [enabledSatellites]);
 
   return { bodies, satellites, loading, satellitesLoading, error };
 }
