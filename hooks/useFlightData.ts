@@ -13,9 +13,9 @@ import {
   OpenSkyFlight,
 } from "../lib/opensky";
 
-// Poll the map every 10s; the opensky-proxy Edge Function caches responses for
-// 25s so OpenSky typically sees one request per ~30s, not every poll.
-const FLIGHT_REFRESH_INTERVAL_MS = 10_000;
+// Poll every 30s. The opensky-proxy caches responses, so this keeps OpenSky
+// load low and avoids the retry storm that gets the account rate-limited.
+const FLIGHT_REFRESH_INTERVAL_MS = 30_000;
 const STATES_BACKOFF_BASE_MS = 60_000;
 const STATES_BACKOFF_MAX_MS = 600_000;
 const TRACK_FETCH_INTERVAL_MS = 30_000;
