@@ -243,9 +243,8 @@ export default function MapboxMapBase({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
-  const celestialMarkersRef = useRef<mapboxgl.Marker[]>([]);
+  const celestialMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
   const celestialBodiesRef = useRef(celestialBodies);
-  const celestialBodyIdsRef = useRef("");
   const onZoomChangeRef = useRef(onZoomChange);
   const onCenterChangeRef = useRef(onCenterChange);
   const mapReadyRef = useRef(false);
@@ -265,47 +264,43 @@ export default function MapboxMapBase({
     const zoom = map.getZoom();
     onZoomChangeRef.current?.(zoom);
 
-    const bodies = celestialBodiesRef.current;
-    const visibleBodies = bodies.filter((body) =>
-      celestialBodyVisibleOnMap(body, zoom),
+    const visibleBodies = celestialBodiesRef.current.filter(
+      (body) =>
+        celestialBodyVisibleOnMap(body, zoom) &&
+        isFinite(body.earthLongitude) &&
+        isFinite(body.earthLatitude),
     );
-    const bodyIds = visibleBodies
-      .map(
-        (body) =>
-          `${body.id}:${body.earthLatitude.toFixed(2)}:${body.earthLongitude.toFixed(2)}`,
-      )
-      .join(",");
-    const shouldShow = visibleBodies.length > 0;
 
-    if (!shouldShow) {
-      if (celestialMarkersRef.current.length > 0) {
-        celestialMarkersRef.current.forEach((marker) => marker.remove());
-        celestialMarkersRef.current = [];
-        celestialBodyIdsRef.current = "";
+    const markers = celestialMarkersRef.current;
+    const seen = new Set<string>();
+
+    // Update existing markers in place (no flicker) and add any new ones.
+    for (const body of visibleBodies) {
+      seen.add(body.id);
+      const [lng, lat] = celestialBodyEarthCoordinate(body);
+      const existing = markers.get(body.id);
+      if (existing) {
+        existing.setLngLat([lng, lat]);
+      } else {
+        markers.set(
+          body.id,
+          new mapboxgl.Marker({
+            element: createCelestialMarkerElement(body),
+            anchor: "center",
+          })
+            .setLngLat([lng, lat])
+            .addTo(map),
+        );
       }
-      return;
     }
 
-    if (
-      celestialMarkersRef.current.length === visibleBodies.length &&
-      celestialBodyIdsRef.current === bodyIds
-    ) {
-      return;
+    // Remove markers for bodies that are no longer visible.
+    for (const [id, marker] of markers) {
+      if (!seen.has(id)) {
+        marker.remove();
+        markers.delete(id);
+      }
     }
-
-    celestialMarkersRef.current.forEach((marker) => marker.remove());
-    celestialMarkersRef.current = visibleBodies
-      .filter((body) => isFinite(body.earthLongitude) && isFinite(body.earthLatitude))
-      .map((body) => {
-        const [lng, lat] = celestialBodyEarthCoordinate(body);
-        return new mapboxgl.Marker({
-          element: createCelestialMarkerElement(body),
-          anchor: "center",
-        })
-          .setLngLat([lng, lat])
-          .addTo(map);
-      });
-    celestialBodyIdsRef.current = bodyIds;
   }, []);
 
   useEffect(() => {
@@ -421,7 +416,7 @@ export default function MapboxMapBase({
       markersRef.current.forEach((marker) => marker.remove());
       markersRef.current = [];
       celestialMarkersRef.current.forEach((marker) => marker.remove());
-      celestialMarkersRef.current = [];
+      celestialMarkersRef.current = new Map();
       if (map.getLayer(FLIGHTS_LAYER_ID)) map.removeLayer(FLIGHTS_LAYER_ID);
       if (map.getLayer(FLIGHTS_TRAIL_LAYER_ID)) {
         map.removeLayer(FLIGHTS_TRAIL_LAYER_ID);
