@@ -40,6 +40,13 @@ export default function FilterScreen() {
   function toggleFilter(key: keyof MapFilters) {
     setFilters((prev) => {
       const next = { ...prev, [key]: !prev[key] };
+      // Live overlays have no historical data, so "All Time" doesn't apply —
+      // snap back to "Past Week" whenever one is enabled.
+      const liveOn =
+        next.showFlightPaths || next.showCelestial || next.showSatellites;
+      if (liveOn && next.timeRange === "all") {
+        next.timeRange = "week";
+      }
       updateFilters(next);
       return next;
     });
@@ -52,6 +59,9 @@ export default function FilterScreen() {
       return next;
     });
   }
+
+  const liveLayersOn =
+    filters.showFlightPaths || filters.showCelestial || filters.showSatellites;
 
   return (
     <View style={styles.container}>
@@ -148,8 +158,10 @@ export default function FilterScreen() {
             style={[
               styles.timeRangeBtn,
               filters.timeRange === "all" && styles.timeRangeBtnActive,
+              liveLayersOn && styles.timeRangeBtnDisabled,
             ]}
             onPress={() => setTimeRange("all")}
+            disabled={liveLayersOn}
           >
             <Text
               style={[
@@ -159,7 +171,11 @@ export default function FilterScreen() {
             >
               All Time
             </Text>
-            <Text style={styles.timeRangeSub}>All historical reports</Text>
+            <Text style={styles.timeRangeSub}>
+              {liveLayersOn
+                ? "Unavailable with live overlays"
+                : "All historical reports"}
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -216,6 +232,9 @@ const styles = StyleSheet.create({
   timeRangeBtnActive: {
     borderColor: Colors.green,
     backgroundColor: "rgba(57,255,20,0.07)",
+  },
+  timeRangeBtnDisabled: {
+    opacity: 0.4,
   },
   timeRangeBtnText: {
     fontFamily: Fonts.display,
