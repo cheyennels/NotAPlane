@@ -63,3 +63,54 @@ export async function writeFlightCache(
     // Ignore quota errors — in-memory cache still works this session.
   }
 }
+
+// The most recent successful real fetch, kept separately from the per-box cache
+// so we can show real (not demo) flights anywhere they overlap the current
+// viewport — even after the user pans to a box we never fetched exactly.
+const LATEST_KEY = `${STORAGE_PREFIX}latest`;
+let latestSnapshot: CachedFlights | null = null;
+
+export async function writeLatestFlights(
+  flights: OpenSkyFlight[],
+): Promise<void> {
+  if (flights.length === 0) return;
+  const entry: CachedFlights = { flights, fetchedAt: Date.now() };
+  latestSnapshot = entry;
+  try {
+    await AsyncStorage.setItem(LATEST_KEY, JSON.stringify(entry));
+  } catch {
+    // Ignore quota errors — the in-memory snapshot still works this session.
+  }
+}
+
+/** Real flights from the last successful fetch that fall inside the given box,
+ *  or null when there is no fresh snapshot or nothing overlaps. */
+export async function readLatestFlightsInBox(
+  minLat: number,
+  maxLat: number,
+  minLng: number,
+  maxLng: number,
+): Promise<OpenSkyFlight[] | null> {
+  let snapshot = latestSnapshot;
+  if (!snapshot) {
+    try {
+      const raw = await AsyncStorage.getItem(LATEST_KEY);
+      if (raw) snapshot = JSON.parse(raw) as CachedFlights;
+    } catch {
+      return null;
+    }
+  }
+  if (!snapshot || Date.now() - snapshot.fetchedAt > FLIGHT_CACHE_TTL_MS) {
+    return null;
+  }
+  latestSnapshot = snapshot;
+
+  const inBox = snapshot.flights.filter(
+    (f) =>
+      f.latitude >= minLat &&
+      f.latitude <= maxLat &&
+      f.longitude >= minLng &&
+      f.longitude <= maxLng,
+  );
+  return inBox.length > 0 ? inBox : null;
+}

@@ -4,7 +4,9 @@
 import {
   flightCacheKey,
   readFlightCache,
+  readLatestFlightsInBox,
   writeFlightCache,
+  writeLatestFlights,
 } from "./flightCache";
 import {
   readFlightTrackCache,
@@ -75,13 +77,21 @@ async function mockOrCachedFlightsResult(
 ): Promise<FlightsInAreaResult> {
   const cached = await cachedFlightsResult(cacheKey);
   if (cached) return cached;
-  return mockFlightsResult(
-    minLat,
-    maxLat,
-    minLng,
-    maxLng,
-    status === 429,
-  );
+
+  // Real flights from the most recent successful fetch, filtered to this
+  // viewport — preferred over demo data even after the user has panned.
+  const latest = await readLatestFlightsInBox(minLat, maxLat, minLng, maxLng);
+  if (latest) {
+    setMockFlightsActive(false);
+    return { flights: latest, status: 200, cached: true };
+  }
+
+  // Back the client off not just on an explicit 429, but on timeouts/unavailable
+  // too (504/502/0) — those are usually OpenSky throttling by stalling, so
+  // retrying every poll just deepens the rate-limiting.
+  const shouldBackOff =
+    status === 429 || status === 504 || status === 502 || status === 0;
+  return mockFlightsResult(minLat, maxLat, minLng, maxLng, shouldBackOff);
 }
 
 function mockFlightsResult(
@@ -179,6 +189,7 @@ export async function getFlightsInArea(
 
     const flights = parseOpenSkyStates(data.states);
     await writeFlightCache(cacheKey, flights);
+    await writeLatestFlights(flights);
     setMockFlightsActive(false);
     return { flights, status: response.status };
   } catch (error) {

@@ -2,7 +2,10 @@
 // OpenSky + Celestrak TLE proxy. This is the single authenticated backend for
 // flight/satellite data on every platform (web and native). Secrets
 // (OpenSky credentials) live only in this function's environment.
-const OPENSKY_TIMEOUT_MS = 15_000;
+// Fail fast: the client aborts at 12s. We may make two attempts (authenticated,
+// then anonymous), so keep each well under half of that.
+const OPENSKY_TIMEOUT_MS = 5_000;
+const OPENSKY_TOKEN_TIMEOUT_MS = 4_000;
 const TLE_TIMEOUT_MS = 12_000;
 const TOKEN_URL =
   "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token";
@@ -125,31 +128,47 @@ async function getOpenSkyAuthHeaders(): Promise<Record<string, string>> {
       return { Authorization: `Bearer ${tokenCache.token}` };
     }
 
-    const tokenResponse = await fetch(TOKEN_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "client_credentials",
-        client_id: clientId,
-        client_secret: clientSecret,
-      }),
-    });
+    try {
+      const tokenResponse = await fetch(TOKEN_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          grant_type: "client_credentials",
+          client_id: clientId,
+          client_secret: clientSecret,
+        }),
+        signal: AbortSignal.timeout(OPENSKY_TOKEN_TIMEOUT_MS),
+      });
 
-    if (tokenResponse.ok) {
-      const data = await tokenResponse.json();
-      if (data.access_token) {
-        const expiresInMs = (data.expires_in ?? 1800) * 1000;
-        tokenCache = {
-          token: data.access_token,
-          expiresAt: Date.now() + expiresInMs - TOKEN_REFRESH_MARGIN_MS,
-        };
-        return { Authorization: `Bearer ${tokenCache.token}` };
+      if (tokenResponse.ok) {
+        const data = await tokenResponse.json();
+        if (data.access_token) {
+          const expiresInMs = (data.expires_in ?? 1800) * 1000;
+          tokenCache = {
+            token: data.access_token,
+            expiresAt: Date.now() + expiresInMs - TOKEN_REFRESH_MARGIN_MS,
+          };
+          return { Authorization: `Bearer ${tokenCache.token}` };
+        }
+      } else {
+        console.warn(
+          "OpenSky OAuth token request failed:",
+          tokenResponse.status,
+        );
       }
-    } else {
-      console.warn("OpenSky OAuth token request failed:", tokenResponse.status);
+    } catch (error) {
+      console.warn(
+        "OpenSky OAuth token request errored:",
+        error instanceof Error ? error.message : String(error),
+      );
     }
+
+    // OAuth is configured but no token — go straight to anonymous (fast,
+    // IP-limited) rather than the deprecated Basic path, which OpenSky stalls.
+    return {};
   }
 
+  // No OAuth client configured: legacy Basic auth, else anonymous.
   const username = Deno.env.get("OPENSKY_USERNAME");
   const password = Deno.env.get("OPENSKY_PASSWORD");
   if (username && password && username !== "your_username") {
@@ -180,25 +199,30 @@ function getCachedStates(key: string, allowStale: boolean): unknown | null {
   return null;
 }
 
-// Fetches OpenSky and returns a JSON Response. Upstream error bodies are logged
+// One OpenSky attempt (with or without auth). Upstream error bodies are logged
 // server-side and never forwarded to callers.
-async function fetchOpenSky(openskyUrl: string): Promise<Response> {
+async function fetchOpenSkyOnce(
+  openskyUrl: string,
+  useAuth: boolean,
+): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), OPENSKY_TIMEOUT_MS);
+  const label = useAuth ? "auth" : "anon";
 
   try {
+    const authHeaders = useAuth ? await getOpenSkyAuthHeaders() : {};
     const response = await fetch(openskyUrl, {
       headers: {
         Accept: "application/json",
         "User-Agent": "NotAPlane/1.0 (Supabase Edge)",
-        ...(await getOpenSkyAuthHeaders()),
+        ...authHeaders,
       },
       signal: controller.signal,
     });
 
     if (!response.ok) {
       const detail = await response.text();
-      console.warn("OpenSky API error:", response.status, detail);
+      console.warn(`OpenSky API error (${label}):`, response.status, detail);
       return Response.json(
         { error: "OpenSky API error", status: response.status },
         { status: response.status },
@@ -209,7 +233,7 @@ async function fetchOpenSky(openskyUrl: string): Promise<Response> {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const isTimeout = message.includes("abort") || message.includes("Abort");
-    console.warn("OpenSky proxy failure:", message);
+    console.warn(`OpenSky proxy failure (${label}):`, message);
     return Response.json(
       { error: isTimeout ? "OpenSky request timed out" : "Proxy failed" },
       { status: isTimeout ? 504 : 500 },
@@ -217,6 +241,21 @@ async function fetchOpenSky(openskyUrl: string): Promise<Response> {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+// Try authenticated first. If OpenSky *quickly* rejects the account (429/403),
+// retry once anonymously — that's a separate rate-limit bucket that may still be
+// under limit. On a timeout (504) we do NOT retry: a stall means the whole IP is
+// throttled, so a second request would only deepen it. Fail fast instead.
+async function fetchOpenSky(openskyUrl: string): Promise<Response> {
+  const authed = await fetchOpenSkyOnce(openskyUrl, true);
+  if (authed.ok) return authed;
+
+  if (authed.status === 429 || authed.status === 403) {
+    const anon = await fetchOpenSkyOnce(openskyUrl, false);
+    if (anon.ok) return anon;
+  }
+  return authed;
 }
 
 async function fetchStatesCached(
