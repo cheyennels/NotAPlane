@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getCorroborationCounts } from "../lib/corroborations";
 import { supabase } from "../lib/supabase";
 
 export type Sighting = {
@@ -65,17 +66,11 @@ export function useSightings() {
     }
 
     const ids = rows.map((s) => s.id);
-    const { data: corrobRows } = await supabase
-      .from("corroborations")
-      .select("sighting_id")
-      .in("sighting_id", ids);
+    const counts = await getCorroborationCounts(ids);
 
-    const counts: Record<string, number> = {};
-    for (const row of corrobRows || []) {
-      counts[row.sighting_id] = (counts[row.sighting_id] ?? 0) + 1;
-    }
-
-    setSightings(rows.map((s) => ({ ...s, corroborations: counts[s.id] ?? 0 })));
+    setSightings(
+      rows.map((s) => ({ ...s, corroborations: counts.get(s.id)?.total ?? 0 })),
+    );
     setLoading(false);
   }
 

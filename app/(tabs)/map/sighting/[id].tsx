@@ -4,6 +4,7 @@ import Button from "@/components/ui/Button";
 import { LoadingView } from "@/components/ui/StateViews";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
+import { getCorroborationCounts } from "@/lib/corroborations";
 import { getStatusColor, getStatusLabel } from "@/lib/status";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -93,12 +94,8 @@ export default function SightingDetailScreen() {
     }
 
     async function fetchCorroborations() {
-      const { count } = await supabase
-        .from("corroborations")
-        .select("*", { count: "exact", head: true })
-        .eq("sighting_id", id);
-
-      setCorroborationCount(count || 0);
+      const counts = await getCorroborationCounts([String(id)]);
+      setCorroborationCount(counts.get(String(id))?.total ?? 0);
 
       const {
         data: { user },

@@ -6,6 +6,7 @@ import StatsRow from "@/components/ui/StatsRow";
 import ToggleRow from "@/components/ui/ToggleRow";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
+import { getCorroborationCounts } from "@/lib/corroborations";
 import { geocodeLocation } from "@/lib/geocode";
 import { notify } from "@/lib/notify";
 import { router } from "expo-router";
@@ -101,15 +102,10 @@ export default function ProfileScreen() {
         ).length,
       );
 
-      const { count } = await supabase
-        .from("corroborations")
-        .select("*", { count: "exact", head: true })
-        .in(
-          "sighting_id",
-          sightings.map((s) => s.id),
-        );
-
-      setCorroborations(count || 0);
+      const counts = await getCorroborationCounts(sightings.map((s) => s.id));
+      let total = 0;
+      counts.forEach((c) => (total += c.total));
+      setCorroborations(total);
     }
   }
   const [deleting, setDeleting] = useState(false);
