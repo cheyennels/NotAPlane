@@ -2,6 +2,7 @@ import ScreenHeader from "@/components/ui/ScreenHeader";
 import SectionLabel from "@/components/ui/SectionLabel";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
+import { getCorroborationCounts } from "@/lib/corroborations";
 import { supabase } from "@/lib/supabase";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
@@ -15,10 +16,10 @@ import {
 } from "react-native";
 
 type ActivityItem = {
-  id: string;
   sighting_id: string;
   location: string;
-  created_at: string;
+  total: number;
+  recent: number;
 };
 
 function formatLocation(latitude: number, longitude: number): string {
@@ -71,38 +72,24 @@ export default function ActivityScreen() {
       sightings.map((s) => [s.id, formatLocation(s.latitude, s.longitude)]),
     );
 
-    const { data: corroborations, error: corroborationsError } = await supabase
-      .from("corroborations")
-      .select("id, sighting_id, created_at")
-      .in("sighting_id", sightingIds)
-      .order("created_at", { ascending: false });
+    // Counts only — never who corroborated (see corroboration_counts RPC).
+    const counts = await getCorroborationCounts(sightingIds);
 
-    if (corroborationsError) {
-      setError(corroborationsError.message);
-      setLoading(false);
-      return;
+    const items: ActivityItem[] = [];
+    for (const s of sightings) {
+      const c = counts.get(s.id);
+      if (!c || c.total === 0) continue;
+      items.push({
+        sighting_id: s.id,
+        location: locationById.get(s.id) ?? "Unknown location",
+        total: c.total,
+        recent: c.recent,
+      });
     }
 
-    if (!corroborations?.length) {
-      setNewItems([]);
-      setOlderItems([]);
-      setLoading(false);
-      return;
-    }
-
-    const weekAgo = new Date();
-    weekAgo.setDate(weekAgo.getDate() - 7);
-
-    const items: ActivityItem[] = corroborations.map((corroboration) => ({
-      id: corroboration.id,
-      sighting_id: corroboration.sighting_id,
-      location:
-        locationById.get(corroboration.sighting_id) ?? "Unknown location",
-      created_at: corroboration.created_at,
-    }));
-
-    setNewItems(items.filter((item) => new Date(item.created_at) >= weekAgo));
-    setOlderItems(items.filter((item) => new Date(item.created_at) < weekAgo));
+    // "New" = reports that picked up a corroboration in the last 7 days.
+    setNewItems(items.filter((item) => item.recent > 0));
+    setOlderItems(items.filter((item) => item.recent === 0));
     setLoading(false);
   }, []);
 
@@ -112,28 +99,24 @@ export default function ActivityScreen() {
     }, [fetchActivity]),
   );
 
-  function formatDate(dateStr: string) {
-    const d = new Date(dateStr);
-    return (
-      d.toLocaleDateString("en-US", { month: "long", day: "numeric" }) +
-      " · " +
-      d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
-    );
-  }
-
   function renderItem(item: ActivityItem) {
+    const plural = (n: number) => (n === 1 ? "" : "S");
+    const headline =
+      item.recent > 0
+        ? `YOUR SIGHTING NEAR ${item.location.toUpperCase()} GOT ${item.recent} NEW CORROBORATION${plural(item.recent)}`
+        : `YOUR SIGHTING NEAR ${item.location.toUpperCase()}`;
     return (
       <TouchableOpacity
-        key={item.id}
+        key={item.sighting_id}
         style={styles.notifCard}
         onPress={() =>
           router.push(`/(tabs)/map/sighting/${item.sighting_id}` as any)
         }
       >
-        <Text style={styles.notifText}>
-          {`SOMEONE CORROBORATED YOUR SIGHTING NEAR ${item.location.toUpperCase()}`}
+        <Text style={styles.notifText}>{headline}</Text>
+        <Text style={styles.notifDate}>
+          {`${item.total} corroboration${plural(item.total)} total`}
         </Text>
-        <Text style={styles.notifDate}>{formatDate(item.created_at)}</Text>
       </TouchableOpacity>
     );
   }
