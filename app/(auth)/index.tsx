@@ -23,6 +23,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [guestLoading, setGuestLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   async function handleLogin() {
@@ -48,6 +49,21 @@ export default function LoginScreen() {
       router.replace("/(tabs)/map");
     }
     setLoading(false);
+  }
+
+  async function handleGuestLogin() {
+    setGuestLoading(true);
+    setErrorMessage(null);
+
+    const { error } = await supabase.auth.signInAnonymously();
+
+    if (error) {
+      setErrorMessage(getAuthErrorMessage(error.message));
+      Alert.alert("Couldn't start demo", getAuthErrorMessage(error.message));
+    } else {
+      router.replace("/(tabs)/map");
+    }
+    setGuestLoading(false);
   }
 
   async function handleForgotPassword() {
@@ -118,6 +134,14 @@ export default function LoginScreen() {
           disabled={loading}
         />
 
+        <Button
+          label={guestLoading ? "Starting demo..." : "Continue as Guest"}
+          onPress={handleGuestLogin}
+          disabled={guestLoading || loading}
+          variant="outline"
+          style={styles.guestButton}
+        />
+
         <Pressable
           style={styles.signupFooter}
           onPress={() => router.push("/(auth)/signup" as any)}
@@ -136,6 +160,24 @@ export default function LoginScreen() {
             </>
           )}
         </Pressable>
+
+        {Platform.OS === "web" ? (
+          <Pressable
+            style={styles.aboutLink}
+            onPress={() => router.push("/about" as any)}
+          >
+            {({ hovered, pressed }) => (
+              <Text
+                style={[
+                  styles.aboutLinkText,
+                  (hovered || pressed) && styles.aboutLinkTextHover,
+                ]}
+              >
+                About this project →
+              </Text>
+            )}
+          </Pressable>
+        ) : null}
       </View>
     </KeyboardAvoidingView>
   );
@@ -177,10 +219,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     lineHeight: 16,
   },
+  guestButton: {
+    marginTop: 12,
+  },
   signupFooter: {
     flexDirection: "row",
     marginTop: "auto",
-    paddingBottom: 40,
+    paddingBottom: 12,
     alignItems: "center",
   },
   signupLabel: {
@@ -196,6 +241,19 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   signupLinkHover: {
+    textDecorationLine: "underline",
+  },
+  aboutLink: {
+    paddingBottom: 32,
+  },
+  aboutLinkText: {
+    fontFamily: Fonts.mono,
+    fontSize: 10,
+    color: Colors.muted,
+    letterSpacing: 1,
+  },
+  aboutLinkTextHover: {
+    color: Colors.dim,
     textDecorationLine: "underline",
   },
 });
