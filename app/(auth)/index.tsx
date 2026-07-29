@@ -160,24 +160,6 @@ export default function LoginScreen() {
             </>
           )}
         </Pressable>
-
-        {Platform.OS === "web" ? (
-          <Pressable
-            style={styles.aboutLink}
-            onPress={() => router.push("/about" as any)}
-          >
-            {({ hovered, pressed }) => (
-              <Text
-                style={[
-                  styles.aboutLinkText,
-                  (hovered || pressed) && styles.aboutLinkTextHover,
-                ]}
-              >
-                About this project →
-              </Text>
-            )}
-          </Pressable>
-        ) : null}
       </View>
     </KeyboardAvoidingView>
   );
@@ -241,19 +223,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   signupLinkHover: {
-    textDecorationLine: "underline",
-  },
-  aboutLink: {
-    paddingBottom: 32,
-  },
-  aboutLinkText: {
-    fontFamily: Fonts.mono,
-    fontSize: 10,
-    color: Colors.muted,
-    letterSpacing: 1,
-  },
-  aboutLinkTextHover: {
-    color: Colors.dim,
     textDecorationLine: "underline",
   },
 });
