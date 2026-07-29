@@ -68,8 +68,11 @@ export default function RootLayout() {
 
     const inAuthGroup = segments[0] === "(auth)";
     const onAuthCallback = segments[0] === "auth";
+    // Public case-study page — reachable without signing in, for anyone who
+    // lands on the deployed link directly (e.g. from a portfolio site).
+    const onAboutPage = (segments[0] as string) === "about";
 
-    if (!session && !inAuthGroup && !onAuthCallback) {
+    if (!session && !inAuthGroup && !onAuthCallback && !onAboutPage) {
       router.replace("/(auth)");
     } else if (session && inAuthGroup && segments[1] !== "verify-email") {
       router.replace("/(tabs)/map" as any);
@@ -92,10 +95,15 @@ export default function RootLayout() {
       <Stack.Screen name="auth/reset" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="report" />
+      <Stack.Screen name="about" />
     </Stack>
   );
 
-  if (Platform.OS === "web") {
+  // The phone-bezel mockup is right for app screens, but the case-study page
+  // reads better full-width, so it skips the frame on web.
+  const onAboutPage = (segments[0] as string) === "about";
+
+  if (Platform.OS === "web" && !onAboutPage) {
     return <WebPhoneFrame>{stack}</WebPhoneFrame>;
   }
 
