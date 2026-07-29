@@ -339,3 +339,42 @@ export async function analyzeSighting(
   }
   return analysis;
 }
+
+// Re-run analysis on the signed-in user's reports that never got classified
+// (status is anything other than explained/partial/unexplained). Useful for
+// backfilling older reports that were created before analysis ran. Returns how
+// many were processed and how many the analysis was able to update.
+export async function reanalyzePendingSightings(): Promise<{
+  processed: number;
+  updated: number;
+}> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { processed: 0, updated: 0 };
+
+  const { data: sightings } = await supabase
+    .from('sightings')
+    .select('id, latitude, longitude, sighted_at, status')
+    .eq('user_id', user.id);
+
+  const pending = (sightings ?? []).filter(
+    (s) =>
+      s.status !== 'explained' &&
+      s.status !== 'partial' &&
+      s.status !== 'unexplained',
+  );
+
+  let updated = 0;
+  for (const s of pending) {
+    const result = await analyzeSighting(
+      s.id,
+      s.latitude,
+      s.longitude,
+      s.sighted_at,
+    );
+    if (result) updated += 1;
+  }
+
+  return { processed: pending.length, updated };
+}

@@ -6,6 +6,7 @@ import StatsRow from "@/components/ui/StatsRow";
 import ToggleRow from "@/components/ui/ToggleRow";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
+import { reanalyzePendingSightings } from "@/lib/analysis";
 import { getCorroborationCounts } from "@/lib/corroborations";
 import { geocodeLocation } from "@/lib/geocode";
 import { notify } from "@/lib/notify";
@@ -53,15 +54,44 @@ export default function ProfileScreen() {
   const [userLocation, setUserLocation] = useState("");
   const [editingLocation, setEditingLocation] = useState(false);
   const [locationInput, setLocationInput] = useState("");
+  const [reanalyzing, setReanalyzing] = useState(false);
+  const [isGuest, setIsGuest] = useState(false);
   useEffect(() => {
     fetchUserData();
   }, []);
+
+  async function handleReanalyze() {
+    setReanalyzing(true);
+    try {
+      const { processed, updated } = await reanalyzePendingSightings();
+      if (processed === 0) {
+        notify(
+          "Nothing to re-analyze",
+          "All your reports already have a status.",
+        );
+      } else {
+        notify(
+          "Re-analysis complete",
+          `Re-checked ${processed} pending report${processed === 1 ? "" : "s"} and updated ${updated}. Refresh the map to see the new colors.`,
+        );
+      }
+      await fetchUserData();
+    } finally {
+      setReanalyzing(false);
+    }
+  }
 
   async function fetchUserData() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return;
+
+    // Anonymous ("guest") users have no real account data to show.
+    if (user.is_anonymous) {
+      setIsGuest(true);
+      return;
+    }
 
     setUserEmail(user.email || "");
     const date = new Date(user.created_at);
@@ -113,6 +143,11 @@ export default function ProfileScreen() {
   async function handleLogout() {
     await supabase.auth.signOut();
     router.replace("/(auth)" as any);
+  }
+
+  async function handleCreateAccount() {
+    await supabase.auth.signOut();
+    router.replace("/(auth)/signup" as any);
   }
 
   function confirmDeleteAccount(): Promise<boolean> {
@@ -186,6 +221,32 @@ export default function ProfileScreen() {
     }
   }
 
+  if (isGuest) {
+    return (
+      <View style={styles.container}>
+        <ScreenHeader title="Profile" subtitle="Account and settings" />
+        <View style={styles.guestBody}>
+          <View style={styles.avatarWrap}>
+            <Image
+              source={require("../../../assets/images/alien.png")}
+              style={styles.avatarImage}
+              resizeMode="contain"
+            />
+          </View>
+          <Text style={styles.guestTitle}>No account data</Text>
+          <Text style={styles.guestSubtitle}>
+            You&apos;re browsing as a guest. Create an account to save reports,
+            track corroborations, and personalize your profile.
+          </Text>
+        </View>
+        <View style={styles.btnGroup}>
+          <Button label="Create Account" onPress={handleCreateAccount} />
+          <Button label="Logout" variant="outline" onPress={handleLogout} />
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <ScreenHeader title="Profile" subtitle="Account and settings" />
@@ -255,6 +316,14 @@ export default function ProfileScreen() {
           subtitle="miles"
           defaultValue={true}
         />
+
+        <SectionLabel variant="section">Reports</SectionLabel>
+        <Button
+          label={reanalyzing ? "Re-analyzing…" : "Re-analyze pending reports"}
+          variant="outline"
+          onPress={handleReanalyze}
+          disabled={reanalyzing}
+        />
       </ScrollView>
 
       <View style={styles.btnGroup}>
@@ -320,6 +389,27 @@ const styles = StyleSheet.create({
   },
   scroll: {
     flex: 1,
+  },
+  guestBody: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 32,
+    gap: 16,
+  },
+  guestTitle: {
+    fontFamily: Fonts.display,
+    fontSize: 20,
+    color: Colors.white,
+    letterSpacing: 1,
+    textAlign: "center",
+  },
+  guestSubtitle: {
+    fontFamily: Fonts.mono,
+    fontSize: 12,
+    color: Colors.muted,
+    lineHeight: 20,
+    textAlign: "center",
   },
   profileHero: {
     flexDirection: "row",
