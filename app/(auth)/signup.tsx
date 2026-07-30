@@ -156,7 +156,10 @@ export default function SignUpScreen() {
         <Button
           label="Back to Login"
           variant="outline"
-          onPress={() => router.back()}
+          // Go to login directly rather than router.back(): reaching signup via
+          // the guest "Create Account" flow uses router.replace, so there's no
+          // history entry to pop and back() would be a no-op.
+          onPress={() => router.replace("/(auth)")}
         />
       </ScrollView>
     </KeyboardAvoidingView>
