@@ -74,7 +74,14 @@ export default function RootLayout() {
 
     if (!session && !inAuthGroup && !onAuthCallback && !onAboutPage) {
       router.replace("/(auth)");
-    } else if (session && inAuthGroup && segments[1] !== "verify-email") {
+    } else if (
+      session &&
+      inAuthGroup &&
+      segments[1] !== "verify-email" &&
+      // Let a guest reach the signup form while still anonymously signed in;
+      // handleCreateAccount navigates here first, then clears the session.
+      segments[1] !== "signup"
+    ) {
       router.replace("/(tabs)/map" as any);
     }
   }, [session, initialized, segments]);

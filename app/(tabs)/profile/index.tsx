@@ -146,8 +146,11 @@ export default function ProfileScreen() {
   }
 
   async function handleCreateAccount() {
-    await supabase.auth.signOut();
+    // Navigate to signup *before* signing out: the root auth gate exempts the
+    // signup route while a session exists, so we land there cleanly. If we
+    // signed out first, the gate would bounce a session-less user to login.
     router.replace("/(auth)/signup" as any);
+    await supabase.auth.signOut();
   }
 
   function confirmDeleteAccount(): Promise<boolean> {
