@@ -1,5 +1,6 @@
 import * as Location from "expo-location";
-import { Alert } from "react-native";
+import { Platform } from "react-native";
+import { notify } from "./notify";
 
 export type DeviceLocation = {
   latitude: number;
@@ -7,9 +8,47 @@ export type DeviceLocation = {
 };
 
 export async function getDeviceLocation(): Promise<DeviceLocation | null> {
+  return Platform.OS === "web" ? getWebLocation() : getNativeLocation();
+}
+
+// Web: use the browser Geolocation API directly. expo-location's web shim for
+// hasServicesEnabled/getLastKnownPosition is unreliable, and the browser
+// handles the permission prompt itself.
+function getWebLocation(): Promise<DeviceLocation | null> {
+  return new Promise((resolve) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      notify(
+        "Location unavailable",
+        "Your browser doesn't support location. Place the pin manually instead.",
+      );
+      resolve(null);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) =>
+        resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        }),
+      (error) => {
+        notify(
+          "Location unavailable",
+          error.code === error.PERMISSION_DENIED
+            ? "Allow location access in your browser, then try again — or place the pin manually."
+            : "Couldn't read your location. Try again or place the pin manually.",
+        );
+        resolve(null);
+      },
+      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 60_000 },
+    );
+  });
+}
+
+async function getNativeLocation(): Promise<DeviceLocation | null> {
   const servicesEnabled = await Location.hasServicesEnabledAsync();
   if (!servicesEnabled) {
-    Alert.alert(
+    notify(
       "Location services off",
       "Turn on location services in your device settings, then try again.",
     );
@@ -18,7 +57,7 @@ export async function getDeviceLocation(): Promise<DeviceLocation | null> {
 
   const { status } = await Location.requestForegroundPermissionsAsync();
   if (status !== "granted") {
-    Alert.alert(
+    notify(
       "Permission denied",
       "Location permission is required to use your current position. Enable it in settings and try again.",
     );
@@ -48,7 +87,7 @@ export async function getDeviceLocation(): Promise<DeviceLocation | null> {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Could not read your location.";
-    Alert.alert("Location unavailable", message);
+    notify("Location unavailable", message);
     return null;
   }
 }

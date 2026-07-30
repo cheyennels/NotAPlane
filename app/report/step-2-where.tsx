@@ -7,11 +7,16 @@ import ToggleRow from "@/components/ui/ToggleRow";
 import { Colors } from "@/constants/colors";
 import { Fonts } from "@/constants/fonts";
 import { getDeviceLocation, type DeviceLocation } from "@/lib/getDeviceLocation";
+import { supabase } from "@/lib/supabase";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { notify } from "@/lib/notify";
-import { useReport } from "../../context/ReportContext";
+import {
+  DEFAULT_REPORT_LATITUDE,
+  DEFAULT_REPORT_LONGITUDE,
+  useReport,
+} from "../../context/ReportContext";
 
 export default function StepTwoWhere() {
   const { form, updateForm } = useReport();
@@ -26,6 +31,38 @@ export default function StepTwoWhere() {
     setCoordinates([longitude, latitude]);
     updateForm({ latitude, longitude });
   }
+
+  // Default the pin to the user's saved account location instead of Minneapolis
+  // — instant, no permission prompt; the toggle still grabs exact GPS on demand.
+  // Only replaces the untouched default (leaves a pin the user already placed).
+  useEffect(() => {
+    if (
+      form.latitude !== DEFAULT_REPORT_LATITUDE ||
+      form.longitude !== DEFAULT_REPORT_LONGITUDE
+    ) {
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) return;
+      const { data } = await supabase
+        .from("profiles")
+        .select("latitude, longitude")
+        .eq("id", userId)
+        .maybeSingle();
+      if (!cancelled && data?.latitude != null && data?.longitude != null) {
+        applyCoordinates(data.longitude, data.latitude);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function applyCurrentLocation(): Promise<DeviceLocation | null> {
     setLocating(true);
