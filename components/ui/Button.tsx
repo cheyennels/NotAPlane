@@ -15,6 +15,7 @@ export type ButtonVariant =
   | "outline" // white border, white text
   | "accent" // dark green fill, green border + text
   | "tint" // subtle green tint fill, green border + text
+  | "muted" // solid grey fill, black text — inactive/informational
   | "danger"; // red border + text
 
 type Props = {
@@ -41,7 +42,9 @@ export default function Button({
       style={[
         styles.base,
         containerStyles[variant],
-        disabled && styles.disabled,
+        // The muted variant is already visually inactive, so don't stack the
+        // opacity dim on top of it — keep it a clean solid grey.
+        disabled && variant !== "muted" && styles.disabled,
         style,
       ]}
       onPress={onPress}
@@ -93,6 +96,9 @@ const containerStyles: Record<ButtonVariant, ViewStyle> = {
     borderWidth: 2,
     borderColor: Colors.green,
   },
+  muted: {
+    backgroundColor: Colors.muted,
+  },
   danger: {
     borderWidth: 2,
     borderColor: Colors.red,
@@ -104,5 +110,6 @@ const labelStyles: Record<ButtonVariant, TextStyle> = {
   outline: { color: Colors.white },
   accent: { color: Colors.green },
   tint: { color: Colors.green },
+  muted: { color: Colors.black },
   danger: { color: Colors.red },
 };

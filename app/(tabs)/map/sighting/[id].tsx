@@ -157,7 +157,7 @@ export default function SightingDetailScreen() {
   const statusColor = getStatusColor(sighting.status);
 
   const corroborateLabel = isOwnReport
-    ? `Your Report${corroborationCount > 0 ? ` · ${corroborationCount} corroborations` : ""}`
+    ? `Your Report · ${corroborationCount} corroboration${corroborationCount === 1 ? "" : "s"}`
     : corroborated
       ? `✓ Corroborated · ${corroborationCount}`
       : `Corroborate Report${corroborationCount > 0 ? ` · ${corroborationCount}` : ""}`;
@@ -260,7 +260,7 @@ export default function SightingDetailScreen() {
       <BottomActionBar style={styles.bottomBar}>
         <Button
           label={corroborateLabel}
-          variant={corroborated ? "tint" : "primary"}
+          variant={isOwnReport ? "muted" : corroborated ? "tint" : "primary"}
           disabled={isOwnReport}
           onPress={handleCorroborate}
         />
