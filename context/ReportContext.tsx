@@ -21,12 +21,17 @@ export type ReportForm = {
   speed: string;
 };
 
+// Fallback pin when the user has no saved account location. step-2-where
+// replaces this with the account location on mount when it's still untouched.
+export const DEFAULT_REPORT_LATITUDE = 44.9778;
+export const DEFAULT_REPORT_LONGITUDE = -93.265;
+
 const defaultForm: ReportForm = {
   date: "",
   time: "",
   duration: "",
-  latitude: 44.9778,
-  longitude: -93.265,
+  latitude: DEFAULT_REPORT_LATITUDE,
+  longitude: DEFAULT_REPORT_LONGITUDE,
   description: "",
   shape: "",
   colors: [],
