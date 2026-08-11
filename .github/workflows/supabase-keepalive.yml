@@ -1,0 +1,44 @@
+name: Supabase keep-alive
+
+# Supabase Free-tier projects are paused after ~7 days without any requests.
+# This workflow makes one lightweight request every couple of days so the
+# project never sits idle long enough to be paused. It runs on a schedule from
+# the default branch, and can also be triggered manually from the Actions tab.
+#
+# The request is a real (RLS-filtered) query against the sightings table, so it
+# exercises Postgres/PostgREST and returns 200 when the project is healthy. If
+# it ever returns a non-2xx (e.g. the project is actually paused), the job fails
+# and GitHub notifies you — so this doubles as an uptime check.
+
+on:
+  schedule:
+    # Every 2 days at 07:23 UTC. The odd minute avoids top-of-hour GitHub cron
+    # congestion; every-2-days stays well under the 7-day pause window even if a
+    # scheduled run is occasionally skipped.
+    - cron: "23 7 */2 * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST API
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::Missing SUPABASE_URL or SUPABASE_ANON_KEY repository secret."
+            exit 1
+          fi
+          echo "Pinging Supabase REST API..."
+          code=$(curl -sS -o /dev/null -w '%{http_code}' \
+            "$SUPABASE_URL/rest/v1/sightings?select=id&limit=1" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY")
+          echo "HTTP $code"
+          if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then
+            echo "::error::Supabase ping returned HTTP $code — the project may be paused or misconfigured."
+            exit 1
+          fi
+          echo "Supabase is awake and responding."
