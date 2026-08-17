@@ -12,10 +12,11 @@ name: Supabase keep-alive
 
 on:
   schedule:
-    # Every 2 days at 07:23 UTC. The odd minute avoids top-of-hour GitHub cron
-    # congestion; every-2-days stays well under the 7-day pause window even if a
-    # scheduled run is occasionally skipped.
-    - cron: "23 7 */2 * *"
+    # Daily at 07:23 UTC. The odd minute avoids top-of-hour GitHub cron
+    # congestion. Daily (vs the original every-2-days) resets the 7-day
+    # inactivity timer from a fresh start every day, giving the keep-alive the
+    # best chance of registering as activity.
+    - cron: "23 7 * * *"
   workflow_dispatch: {}
 
 jobs:
@@ -32,13 +33,23 @@ jobs:
             exit 1
           fi
           echo "Pinging Supabase REST API..."
-          code=$(curl -sS -o /dev/null -w '%{http_code}' \
+          set +e
+          code=$(curl -sS -m 25 -o /dev/null -w '%{http_code}' \
             "$SUPABASE_URL/rest/v1/sightings?select=id&limit=1" \
             -H "apikey: $SUPABASE_ANON_KEY" \
             -H "Authorization: Bearer $SUPABASE_ANON_KEY")
-          echo "HTTP $code"
+          curl_exit=$?
+          set -e
+          echo "curl exit: $curl_exit | HTTP: ${code:-none}"
+          # curl 6/7 = host won't resolve / connection refused. Supabase drops a
+          # paused project's DNS, so a failure to connect almost always means the
+          # project is PAUSED — and the ping cannot wake it.
+          if [ "$curl_exit" -ne 0 ] || [ -z "$code" ] || [ "$code" = "000" ]; then
+            echo "::error::Couldn't reach the project — Supabase has almost certainly PAUSED it. Un-pause it from the dashboard; a keep-alive ping cannot wake a paused project."
+            exit 1
+          fi
           if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then
             echo "::error::Supabase ping returned HTTP $code — the project may be paused or misconfigured."
             exit 1
           fi
-          echo "Supabase is awake and responding."
+          echo "Supabase is awake and responding (HTTP $code)."
