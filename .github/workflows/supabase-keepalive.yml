@@ -1,23 +1,31 @@
 name: Supabase keep-alive
 
-# Supabase Free-tier projects are paused after ~7 days without any requests.
-# This workflow makes one lightweight request every couple of days so the
-# project never sits idle long enough to be paused. It runs on a schedule from
-# the default branch, and can also be triggered manually from the Actions tab.
+# Keeps the Supabase Free-tier project from being paused for inactivity.
 #
-# The request is a real (RLS-filtered) query against the sightings table, so it
-# exercises Postgres/PostgREST and returns 200 when the project is healthy. If
-# it ever returns a non-2xx (e.g. the project is actually paused), the job fails
-# and GitHub notifies you — so this doubles as an uptime check.
+# Two failure modes this guards against, learned the hard way:
+#   1. The project pauses if it stops receiving requests. The `ping` job hits a
+#      real (RLS-filtered) query against the sightings table twice a day, which
+#      exercises Postgres/PostgREST and returns 200 when healthy. A non-2xx (or
+#      an unresolvable host — Supabase drops a paused project's DNS) fails the
+#      job, so this also doubles as an uptime alert.
+#   2. GitHub auto-disables *scheduled* workflows after 60 days of repo
+#      inactivity — which is what silently killed this cron once. The
+#      `keep-cron-enabled` job pushes a tiny empty commit whenever the repo has
+#      been quiet for 45 days, resetting that 60-day clock so the schedule
+#      never gets switched off again.
+#
+# NOTE: a keep-alive ping cannot WAKE an already-paused project — the project
+# must be un-paused once from the Supabase dashboard, after which this keeps it up.
 
 on:
   schedule:
-    # Daily at 07:23 UTC. The odd minute avoids top-of-hour GitHub cron
-    # congestion. Daily (vs the original every-2-days) resets the 7-day
-    # inactivity timer from a fresh start every day, giving the keep-alive the
-    # best chance of registering as activity.
-    - cron: "23 7 * * *"
+    # Twice daily (07:23 and 19:23 UTC). The odd minute avoids top-of-hour cron
+    # congestion; twice a day leaves margin if GitHub skips or delays a run.
+    - cron: "23 7,19 * * *"
   workflow_dispatch: {}
+
+permissions:
+  contents: write # keep-cron-enabled pushes the periodic keep-active commit
 
 jobs:
   ping:
@@ -53,3 +61,28 @@ jobs:
             exit 1
           fi
           echo "Supabase is awake and responding (HTTP $code)."
+
+  keep-cron-enabled:
+    # GitHub disables scheduled workflows after 60 days of repo inactivity.
+    # Push an empty commit once the last commit is 45+ days old so that never
+    # happens. [skip ci] keeps it from triggering CI or a Vercel deploy.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Commit if the repo has been quiet for 45+ days
+        run: |
+          last=$(git log -1 --format=%ct)
+          now=$(date +%s)
+          age_days=$(( (now - last) / 86400 ))
+          echo "Last commit was $age_days day(s) ago."
+          if [ "$age_days" -ge 45 ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit --allow-empty -m "chore: keep scheduled workflows active [skip ci]"
+            git push
+            echo "Pushed keep-active commit to reset the 60-day timer."
+          else
+            echo "Repo active recently — no keep-active commit needed."
+          fi
